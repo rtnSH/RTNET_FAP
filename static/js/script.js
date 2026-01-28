@@ -96,20 +96,26 @@ function renderSearchList(items) {
 }
 
 function renderIssueDetail(data) {
+    const network = document.querySelector('input[name="network"]:checked').value;
+    
     document.getElementById('res-subject').textContent = `#${data.id} ${data.subject}`;
     document.getElementById('res-status').textContent = data.status;
     document.getElementById('res-author').textContent = data.author;
     document.getElementById('res-assignee').textContent = data.assigned_to;
     document.getElementById('res-priority').textContent = data.priority;
-    document.getElementById('res-description').textContent = data.description || '설명 없음';
+    
+    // Use innerHTML with escaped/processed text
+    document.getElementById('res-description').innerHTML = processRedmineText(data.description, data.attachments, network) || '설명 없음';
 
-    // Render attachments
+    // Render attachments section (at the bottom)
+    const existingAttachments = document.querySelector('.attachments-section');
+    if (existingAttachments) existingAttachments.remove();
+
     const attachmentContainer = document.createElement('div');
     attachmentContainer.className = 'attachments-section';
     if (data.attachments && data.attachments.length > 0) {
         attachmentContainer.innerHTML = '<h4>첨부 파일</h4><div class="attachments-grid"></div>';
         const grid = attachmentContainer.querySelector('.attachments-grid');
-        const network = document.querySelector('input[name="network"]:checked').value;
 
         data.attachments.forEach(att => {
             const isImage = att.content_type.startsWith('image/');
@@ -144,13 +150,15 @@ function renderIssueDetail(data) {
         if (!journal.notes && journal.details.length === 0) return;
 
         const date = new Date(journal.created_on).toLocaleString();
+        const processedNotes = processRedmineText(journal.notes, data.attachments, network);
+        
         const html = `
             <div class="journal-item">
                 <div class="journal-header">
                     <span class="journal-user">${journal.user}</span>
                     <span class="journal-date">${date}</span>
                 </div>
-                ${journal.notes ? `<div class="journal-notes">${journal.notes}</div>` : ''}
+                ${journal.notes ? `<div class="journal-notes">${processedNotes}</div>` : ''}
                 ${journal.details.length > 0 ? `
                     <ul class="journal-details">
                         ${journal.details.map(d => `
@@ -161,5 +169,76 @@ function renderIssueDetail(data) {
             </div>
         `;
         container.insertAdjacentHTML('beforeend', html);
+    });
+}
+
+function escapeHTML(str) {
+    if (!str) return "";
+    return str.replace(/[&<>"']/g, function(m) {
+        return {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        }[m];
+    });
+}
+
+function processRedmineText(text, attachments, network) {
+    if (!text) return "";
+    
+    console.log("Processing text. Available attachments:", attachments.map(a => `${a.filename} (${a.description || ''})`));
+
+    // 1. First, handle existing <img> tags if they are in the raw text
+    // Replace src="filename.png" with src="/api/attachment/ID"
+    let processed = text.replace(/<img[^>]+src=["']([^"']+)["'][^>]*>/gi, (match, src) => {
+        const filename = src.split('/').pop().trim();
+        const att = attachments.find(a => 
+            a.filename.toLowerCase() === filename.toLowerCase() ||
+            (a.description && a.description.toLowerCase() === filename.toLowerCase())
+        );
+        if (att && att.content_type.startsWith('image/')) {
+            const url = `/api/attachment/${att.id}?network=${network}`;
+            return match.replace(src, url).replace(/style=["'][^"']*["']/i, (s) => s.includes('width') ? s : s + ' max-width:100%;');
+        }
+        return match;
+    });
+
+    // 2. Escape HTML for safety for the remaining textile-style tags
+    // NOTE: This might double-escape if the input already had HTML. 
+    // For Redmine, usually it's either all Textile/Markdown or someone pasted HTML.
+    // If it was already HTML and we escape it, we break the <img> tags we just fixed.
+    // So let's only escape if we DON'T detect HTML.
+    const hasHTML = /<[a-z][\s\S]*>/i.test(processed);
+    let escaped = hasHTML ? processed : escapeHTML(processed);
+    
+    // 3. Convert Redmine image tags !filename! or !description! to <img> 
+    const regex = /!(\{([^}]*)\})?([<>=])?(\(([^)]*)\))?([^!\n\r]+)!/g;
+    
+    return escaped.replace(regex, (match, fmt, fmtContent, align, title, titleContent, filename) => {
+        let cleanFilename = filename.trim().replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+        
+        // Match by filename OR description
+        const att = attachments.find(a => 
+            a.filename.toLowerCase() === cleanFilename.toLowerCase() ||
+            (a.description && a.description.toLowerCase() === cleanFilename.toLowerCase()) ||
+            a.filename.toLowerCase().includes(cleanFilename.toLowerCase()) ||
+            (a.description && a.description.toLowerCase().includes(cleanFilename.toLowerCase()))
+        );
+        
+        console.log(`Checking tag: ${match}, Clean text: ${cleanFilename}, Matched:`, att ? att.filename : "None");
+
+        if (att && att.content_type.startsWith('image/')) {
+            const url = `/api/attachment/${att.id}?network=${network}`;
+            let style = 'max-width: 100%; height: auto; border-radius: 4px; border: 1px solid #30363d; margin: 10px 0; display: block;';
+            
+            if (align === '<') style += ' float: left; margin-right: 10px;';
+            else if (align === '>') style += ' float: right; margin-left: 10px;';
+            else if (align === '=') style += ' margin-left: auto; margin-right: auto;';
+            
+            return `<img src="${url}" alt="${escapeHTML(att.filename)}" style="${style}" title="${escapeHTML(titleContent || att.filename)}">`;
+        }
+        return match; 
     });
 }
