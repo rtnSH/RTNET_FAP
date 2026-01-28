@@ -1,0 +1,15 @@
+name: Keep Render Awake
+
+on:
+  schedule:
+    - cron: '*/10 * * * *' # 매 10분마다 실행
+  workflow_dispatch: # 수동 실행 버튼 추가
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send ping request
+        run: |
+          curl -s https://rtnet-fap-redmine.onrender.com/ > /dev/null
+          echo "Ping sent to Render app"
