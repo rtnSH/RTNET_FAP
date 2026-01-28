@@ -104,8 +104,19 @@ function renderIssueDetail(data) {
     document.getElementById('res-assignee').textContent = data.assigned_to;
     document.getElementById('res-priority').textContent = data.priority;
     
+    // Set Redmine URL dynamically based on selection
+    const dynamicLink = document.getElementById('res-link-dynamic');
+    if (dynamicLink) {
+        const url = (network === 'external') ? data.redmine_url_external : data.redmine_url_internal;
+        dynamicLink.href = url;
+        dynamicLink.textContent = url;
+    }
+
     // Use innerHTML with escaped/processed text
-    document.getElementById('res-description').innerHTML = processRedmineText(data.description, data.attachments, network) || '설명 없음';
+    const resDescription = document.getElementById('res-description');
+    if (resDescription) {
+        resDescription.innerHTML = processRedmineText(data.description, data.attachments, network) || '설명 없음';
+    }
 
     // Render attachments section (at the bottom)
     const existingAttachments = document.querySelector('.attachments-section');

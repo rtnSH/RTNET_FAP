@@ -140,6 +140,18 @@ header p {
   opacity: 0.8;
 }
 
+.external-link {
+    color: var(--accent-color);
+    text-decoration: none;
+    font-weight: 500;
+    word-break: break-all;
+    font-size: 0.85rem;
+}
+
+.external-link:hover {
+    text-decoration: underline;
+}
+
 .card {
   background: var(--card-bg);
   border: 1px solid var(--border-color);

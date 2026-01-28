@@ -125,7 +125,9 @@ def format_issue(issue):
         'created_on': issue.created_on.isoformat(),
         'updated_on': issue.updated_on.isoformat(),
         'journals': journals[::-1],
-        'attachments': attachments
+        'attachments': attachments,
+        'redmine_url_internal': f"{REDMINE_URL_INTERNAL}/issues/{issue.id}",
+        'redmine_url_external': f"{REDMINE_URL_EXTERNAL}/issues/{issue.id}"
     }
 
 if __name__ == '__main__':
