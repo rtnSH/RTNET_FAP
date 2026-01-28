@@ -11,6 +11,7 @@ jobs:
     steps:
       - name: Send ping request
         run: |
-          echo "실행 시각 (UTC): $(date)"
+          export TZ='Asia/Seoul'
+          echo "실행 시각 (KST): $(date)"
           curl -s https://rtnet-fap-redmine.onrender.com/ > /dev/null
           echo "Render 앱(https://rtnet-fap-redmine.onrender.com/)에 신호를 보냈습니다."
