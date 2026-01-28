@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redmine History Search</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Redmine History</h1>
+            <p>이슈 번호를 입력하여 변경 이력을 확인하세요.</p>
+        </header>
+
+        <section class="network-selection">
+            <label class="radio-container">
+                <input type="radio" name="network" value="internal" checked>
+                <span class="checkmark"></span>
+                내부망 (192.168...)
+            </label>
+            <label class="radio-container">
+                <input type="radio" name="network" value="external">
+                <span class="checkmark"></span>
+                외부망 (125.131...)
+            </label>
+        </section>
+
+        <section class="search-box">
+            <input type="text" id="issue-query" placeholder="이슈 번호 또는 검색어" autofocus>
+            <button id="search-btn">검색</button>
+        </section>
+
+        <main id="result-area" class="hidden">
+            <div id="search-list" class="hidden">
+                <h3>검색 결과</h3>
+                <div id="list-container"></div>
+            </div>
+
+            <div id="issue-detail" class="hidden">
+                <button id="back-btn" class="secondary-btn">← 목록으로</button>
+                <div class="card issue-info">
+                <div class="card-header">
+                    <span id="res-status" class="badge">Status</span>
+                    <h2 id="res-subject">Issue Subject</h2>
+                </div>
+                <div class="issue-meta">
+                    <p><strong>작성자:</strong> <span id="res-author"></span></p>
+                    <p><strong>담당자:</strong> <span id="res-assignee"></span></p>
+                    <p><strong>우선순위:</strong> <span id="res-priority"></span></p>
+                </div>
+                <div id="res-description" class="description"></div>
+            </div>
+
+            <div class="history-list">
+                <h3>변경 이력</h3>
+                <div id="journals-container"></div>
+            </div>
+        </main>
+
+        <div id="loader" class="hidden">
+            <div class="spinner"></div>
+        </div>
+
+        <div id="error-msg" class="error hidden"></div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
