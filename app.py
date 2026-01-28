@@ -38,7 +38,7 @@ def search_issue():
                 pass # If ID search fails, proceed to keyword search
         
         # Keyword search
-        issues = redmine.issue.filter(subject=f'~{query}')
+        issues = redmine.issue.filter(subject=f'~{query}', status_id='*')
         
         results = []
         for issue in issues:
