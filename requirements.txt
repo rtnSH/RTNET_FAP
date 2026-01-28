@@ -2,3 +2,4 @@ flask
 python-redmine
 python-dotenv
 gunicorn
+requests

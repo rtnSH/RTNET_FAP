@@ -1,6 +1,7 @@
 import os
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, Response
 from redminelib import Redmine
+import requests
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -32,7 +33,7 @@ def search_issue():
         # Check if query is an ID
         if query.isdigit():
             try:
-                issue = redmine.issue.get(query, include=['journals'])
+                issue = redmine.issue.get(query, include=['journals', 'attachments'])
                 return jsonify({'type': 'single', 'data': format_issue(issue)})
             except:
                 pass # If ID search fails, proceed to keyword search
@@ -58,8 +59,28 @@ def get_issue_detail(issue_id):
     network_type = request.args.get('network', 'internal')
     try:
         redmine = get_redmine(network_type)
-        issue = redmine.issue.get(issue_id, include=['journals'])
+        issue = redmine.issue.get(issue_id, include=['journals', 'attachments'])
         return jsonify(format_issue(issue))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 404
+
+@app.route('/api/attachment/<int:attachment_id>')
+def get_attachment(attachment_id):
+    network_type = request.args.get('network', 'internal')
+    try:
+        redmine = get_redmine(network_type)
+        attachment = redmine.attachment.get(attachment_id)
+        
+        headers = {'X-Redmine-API-Key': REDMINE_API_KEY}
+        resp = requests.get(attachment.content_url, headers=headers, stream=True)
+        
+        return Response(
+            resp.iter_content(chunk_size=1024),
+            content_type=resp.headers.get('Content-Type'),
+            headers={
+                'Content-Disposition': f'inline; filename="{attachment.filename}"'
+            }
+        )
     except Exception as e:
         return jsonify({'error': str(e)}), 404
 
@@ -83,6 +104,16 @@ def format_issue(issue):
             'details': details
         })
     
+    attachments = []
+    for att in getattr(issue, 'attachments', []):
+        attachments.append({
+            'id': att.id,
+            'filename': att.filename,
+            'filesize': att.filesize,
+            'content_type': att.content_type,
+            'description': att.description
+        })
+
     return {
         'id': issue.id,
         'subject': issue.subject,
@@ -93,7 +124,8 @@ def format_issue(issue):
         'description': issue.description,
         'created_on': issue.created_on.isoformat(),
         'updated_on': issue.updated_on.isoformat(),
-        'journals': journals[::-1]
+        'journals': journals[::-1],
+        'attachments': attachments
     }
 
 if __name__ == '__main__':

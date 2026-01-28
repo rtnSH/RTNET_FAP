@@ -103,6 +103,40 @@ function renderIssueDetail(data) {
     document.getElementById('res-priority').textContent = data.priority;
     document.getElementById('res-description').textContent = data.description || '설명 없음';
 
+    // Render attachments
+    const attachmentContainer = document.createElement('div');
+    attachmentContainer.className = 'attachments-section';
+    if (data.attachments && data.attachments.length > 0) {
+        attachmentContainer.innerHTML = '<h4>첨부 파일</h4><div class="attachments-grid"></div>';
+        const grid = attachmentContainer.querySelector('.attachments-grid');
+        const network = document.querySelector('input[name="network"]:checked').value;
+
+        data.attachments.forEach(att => {
+            const isImage = att.content_type.startsWith('image/');
+            const url = `/api/attachment/${att.id}?network=${network}`;
+            
+            if (isImage) {
+                grid.insertAdjacentHTML('beforeend', `
+                    <div class="attachment-item">
+                        <a href="${url}" target="_blank">
+                            <img src="${url}" alt="${att.filename}" class="attachment-img">
+                        </a>
+                        <p class="attachment-name">${att.filename}</p>
+                    </div>
+                `);
+            } else {
+                grid.insertAdjacentHTML('beforeend', `
+                    <div class="attachment-item">
+                        <a href="${url}" target="_blank" class="attachment-file-link">
+                            📄 ${att.filename}
+                        </a>
+                    </div>
+                `);
+            }
+        });
+        document.getElementById('res-description').after(attachmentContainer);
+    }
+
     const container = document.getElementById('journals-container');
     container.innerHTML = '';
 
