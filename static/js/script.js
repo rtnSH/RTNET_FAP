@@ -104,12 +104,16 @@ function renderIssueDetail(data) {
     document.getElementById('res-assignee').textContent = data.assigned_to;
     document.getElementById('res-priority').textContent = data.priority;
     
-    // Set Redmine URL dynamically based on selection
-    const dynamicLink = document.getElementById('res-link-dynamic');
-    if (dynamicLink) {
-        const url = (network === 'external') ? data.redmine_url_external : data.redmine_url_internal;
-        dynamicLink.href = url;
-        dynamicLink.textContent = url;
+    // Set both Redmine links
+    const internalLink = document.getElementById('res-link-internal');
+    const externalLink = document.getElementById('res-link-external');
+    if (internalLink && data.redmine_url_internal) {
+        internalLink.href = data.redmine_url_internal;
+        internalLink.textContent = data.redmine_url_internal;
+    }
+    if (externalLink && data.redmine_url_external) {
+        externalLink.href = data.redmine_url_external;
+        externalLink.textContent = data.redmine_url_external;
     }
 
     // Use innerHTML with escaped/processed text
