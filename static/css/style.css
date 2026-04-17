@@ -167,6 +167,15 @@ header p {
   box-shadow: 0 12px 24px rgba(88, 166, 255, 0.18);
 }
 
+#search-btn,
+.create-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 20px;
+}
+
 .search-box button:hover,
 .create-actions button:hover {
   transform: translateY(-1px);
@@ -351,6 +360,16 @@ header p {
   font-size: 0.9rem;
 }
 
+.create-close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  min-height: 44px;
+  margin-bottom: 0;
+  padding: 0 18px;
+}
+
 .create-feedback {
   margin-bottom: 16px;
   padding: 14px 16px;
@@ -447,6 +466,77 @@ header p {
 .create-form textarea {
   min-height: 140px;
   resize: vertical;
+}
+
+.create-advanced {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.create-advanced[open] {
+  border-color: var(--border-emphasis);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.create-advanced-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.create-advanced-summary::-webkit-details-marker {
+  display: none;
+}
+
+.create-advanced-summary::after {
+  content: '▾';
+  flex: 0 0 auto;
+  color: var(--accent-color-strong);
+  font-size: 0.82rem;
+  transition: transform var(--transition-base);
+}
+
+.create-advanced[open] .create-advanced-summary::after {
+  transform: rotate(180deg);
+}
+
+.create-advanced-summary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(88, 166, 255, 0.08);
+}
+
+.create-advanced-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.create-advanced-title {
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.create-advanced-hint {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.create-advanced-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0 16px 16px;
+}
+
+.create-form-grid--advanced {
+  padding-top: 4px;
 }
 
 .create-form input[type="file"] {
@@ -837,6 +927,20 @@ header p {
     align-items: stretch;
   }
 
+  .search-input-row {
+    gap: 12px;
+  }
+
+  .search-support-row {
+    gap: 14px;
+  }
+
+  #search-btn,
+  .create-trigger-btn {
+    width: 100%;
+    min-height: 48px;
+  }
+
   .redmine-entry-btn {
     min-width: 0;
     width: 100%;
@@ -866,6 +970,10 @@ header p {
   .create-file-item {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .create-advanced-summary {
+    align-items: flex-start;
   }
 
   .create-form-grid {

@@ -153,6 +153,7 @@ function initCreatePanel() {
 function getCreateElements() {
     return {
         panel: document.getElementById('create-panel'),
+        advanced: document.getElementById('create-advanced'),
         openButton: document.getElementById('open-create-btn'),
         closeButton: document.getElementById('close-create-btn'),
         feedback: document.getElementById('create-feedback'),
@@ -183,6 +184,7 @@ async function openCreatePanel() {
         return;
     }
 
+    collapseCreateAdvancedSection();
     elements.panel.classList.remove('hidden');
     elements.openButton?.setAttribute('aria-expanded', 'true');
 
@@ -710,6 +712,14 @@ function clearCreateFiles() {
     renderCreateFileList();
 }
 
+function collapseCreateAdvancedSection() {
+    const { advanced } = getCreateElements();
+
+    if (advanced) {
+        advanced.open = false;
+    }
+}
+
 function resetCreateDraft(options = {}) {
     const {
         preserveFeedback = false,
@@ -731,6 +741,8 @@ function resetCreateDraft(options = {}) {
     if (elements.form) {
         elements.form.reset();
     }
+
+    collapseCreateAdvancedSection();
 
     if (elements.subject) {
         elements.subject.value = '';

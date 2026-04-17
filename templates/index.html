@@ -103,7 +103,7 @@
                         <h3>새 이슈 등록</h3>
                         <p>프로젝트와 유형을 선택하면 서버 기본값을 불러옵니다.</p>
                     </div>
-                    <button type="button" id="close-create-btn" class="secondary-btn">닫기</button>
+                    <button type="button" id="close-create-btn" class="secondary-btn create-close-btn">닫기</button>
                 </div>
 
                 <div id="create-feedback" class="create-feedback hidden" role="status" aria-live="polite"></div>
@@ -128,24 +128,6 @@
                                 <option value="">담당자 선택</option>
                             </select>
                         </label>
-                        <label class="create-field">
-                            <span>상태</span>
-                            <select id="create-status" name="status_id">
-                                <option value="">상태 선택</option>
-                            </select>
-                        </label>
-                        <label class="create-field">
-                            <span>우선순위</span>
-                            <select id="create-priority" name="priority_id">
-                                <option value="">우선순위 선택</option>
-                            </select>
-                        </label>
-                        <label class="create-field">
-                            <span>상위 일감</span>
-                            <select id="create-parent" name="parent_issue_id">
-                                <option value="">프로젝트와 유형을 먼저 선택하세요</option>
-                            </select>
-                        </label>
                     </div>
 
                     <label class="create-field">
@@ -158,14 +140,45 @@
                         <textarea id="create-description" name="description" rows="6" placeholder="설명을 입력하세요"></textarea>
                     </label>
 
-                    <div class="create-field create-field--files">
-                        <div class="create-file-header">
-                            <span>첨부 파일</span>
-                            <span class="create-file-hint">여러 파일 선택 가능</span>
+                    <details id="create-advanced" class="create-advanced">
+                        <summary class="create-advanced-summary">
+                            <span class="create-advanced-copy">
+                                <span class="create-advanced-title">고급 설정</span>
+                                <span class="create-advanced-hint">상태, 우선순위, 상위 일감, 첨부 파일</span>
+                            </span>
+                        </summary>
+                        <div class="create-advanced-content">
+                            <div class="create-form-grid create-form-grid--advanced">
+                                <label class="create-field">
+                                    <span>상태</span>
+                                    <select id="create-status" name="status_id">
+                                        <option value="">상태 선택</option>
+                                    </select>
+                                </label>
+                                <label class="create-field">
+                                    <span>우선순위</span>
+                                    <select id="create-priority" name="priority_id">
+                                        <option value="">우선순위 선택</option>
+                                    </select>
+                                </label>
+                                <label class="create-field">
+                                    <span>상위 일감</span>
+                                    <select id="create-parent" name="parent_issue_id">
+                                        <option value="">프로젝트와 유형을 먼저 선택하세요</option>
+                                    </select>
+                                </label>
+                            </div>
+
+                            <div class="create-field create-field--files">
+                                <div class="create-file-header">
+                                    <span>첨부 파일</span>
+                                    <span class="create-file-hint">여러 파일 선택 가능</span>
+                                </div>
+                                <input type="file" id="create-files" name="files" multiple>
+                                <div id="create-file-list" class="create-file-list hidden"></div>
+                            </div>
                         </div>
-                        <input type="file" id="create-files" name="files" multiple>
-                        <div id="create-file-list" class="create-file-list hidden"></div>
-                    </div>
+                    </details>
 
                     <div class="create-actions">
                         <button type="submit" id="create-submit-btn">이슈 등록</button>
