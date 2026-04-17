@@ -181,15 +181,6 @@ header p {
   flex-wrap: wrap;
 }
 
-.search-support-copy {
-  flex: 1 1 240px;
-  max-width: 360px;
-  color: var(--text-tertiary);
-  font-size: 0.82rem;
-  line-height: 1.45;
-  text-align: right;
-}
-
 .redmine-entry-btn {
   display: inline-flex;
   align-items: center;
@@ -213,6 +204,7 @@ header p {
 }
 
 .redmine-entry-btn--primary {
+  justify-content: space-between;
   border-top-right-radius: 0;
   border-bottom-right-radius: 0;
 }
@@ -292,7 +284,9 @@ header p {
 .redmine-entry-copy {
   display: flex;
   flex-direction: column;
-  gap: 0;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
 }
 
 .redmine-entry-title {
@@ -303,8 +297,10 @@ header p {
 }
 
 .redmine-entry-subtitle {
-  color: var(--text-tertiary);
-  font-size: 0.78rem;
+  color: var(--accent-color-strong);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.15;
 }
 
 .redmine-entry-arrow {
@@ -627,11 +623,6 @@ header p {
   .redmine-entry-btn {
     min-width: 0;
     width: 100%;
-  }
-
-  .search-support-copy {
-    max-width: none;
-    text-align: left;
   }
 
   .redmine-entry-split {
