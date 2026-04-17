@@ -182,8 +182,12 @@ header p {
 }
 
 .search-support-copy {
-  color: var(--text-secondary);
-  font-size: 0.88rem;
+  flex: 1 1 240px;
+  max-width: 360px;
+  color: var(--text-tertiary);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  text-align: right;
 }
 
 .redmine-entry-btn {
@@ -257,6 +261,10 @@ header p {
   background: rgba(15, 20, 27, 0.98);
   box-shadow: var(--shadow-soft);
   z-index: 10;
+}
+
+.redmine-entry-split-menu[hidden] {
+  display: none;
 }
 
 .redmine-entry-menu-item {
@@ -619,6 +627,11 @@ header p {
   .redmine-entry-btn {
     min-width: 0;
     width: 100%;
+  }
+
+  .search-support-copy {
+    max-width: none;
+    text-align: left;
   }
 
   .redmine-entry-split {

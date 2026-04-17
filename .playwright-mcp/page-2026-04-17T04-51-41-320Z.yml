@@ -1,0 +1,101 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - heading "Redmine History" [level=1] [ref=e4]
+    - paragraph [ref=e5]: 이슈 번호 또는 내용을 입력하여 변경 이력을 확인하세요.
+  - generic [ref=e6]:
+    - generic [ref=e7] [cursor=pointer]:
+      - radio "내부망 (192.168...)" [checked] [ref=e8]
+      - text: 내부망 (192.168...)
+    - generic [ref=e10] [cursor=pointer]:
+      - radio "외부망 (125.131...)" [ref=e11]
+      - text: 외부망 (125.131...)
+  - generic [ref=e13]:
+    - generic [ref=e14]:
+      - textbox "이슈 번호 또는 검색어" [ref=e15]
+      - button "검색" [ref=e16] [cursor=pointer]
+    - generic [ref=e17]:
+      - paragraph [ref=e18]: 사내 Wi‑Fi망 또는 내부 네트워크 이용 시 내부망으로 열기를 사용해주세요.
+      - generic [ref=e19]:
+        - link "레드마인 바로가기" [ref=e20] [cursor=pointer]:
+          - /url: http://192.168.1.108
+          - generic [ref=e22]: 레드마인 바로가기
+          - generic [ref=e23]: ↗
+        - button "레드마인 열기 대상 선택" [expanded] [active] [ref=e24] [cursor=pointer]:
+          - generic [ref=e25]: ▾
+        - menu [ref=e102]:
+          - menuitem "내부망으로 열기" [ref=e103] [cursor=pointer]
+          - menuitem "외부망으로 열기" [ref=e104] [cursor=pointer]
+  - main [ref=e28]:
+    - generic [ref=e29]:
+      - heading "최근 이슈" [level=3] [ref=e30]
+      - generic [ref=e31]:
+        - generic [ref=e32] [cursor=pointer]:
+          - generic [ref=e33]:
+            - generic [ref=e34]:
+              - generic [ref=e35]: 12_2026년 NH농협생명 x86 인프라 자동화 구독
+              - generic [ref=e36]: "#1276 4_44 '조직/역할/사용자 관리' 계정 사용자 구분 시스템 관리자 변경시 오류"
+            - generic [ref=e37]: 신규
+          - generic [ref=e38]: "최종 업데이트: 4/17/2026"
+        - generic [ref=e39] [cursor=pointer]:
+          - generic [ref=e40]:
+            - generic [ref=e41]:
+              - generic [ref=e42]: 12_2026년 NH농협생명 x86 인프라 자동화 구독
+              - generic [ref=e43]: "#286 4_오류수정"
+            - generic [ref=e44]: 상위
+          - generic [ref=e45]: "최종 업데이트: 4/17/2026"
+        - generic [ref=e46] [cursor=pointer]:
+          - generic [ref=e47]:
+            - generic [ref=e48]:
+              - generic [ref=e49]: 03_2026년 신세계아이앤씨 FAB 구축 (서버파트)
+              - generic [ref=e50]: "#1275 3_3 권한관리 디폴트 설정 변경"
+            - generic [ref=e51]: 신규
+          - generic [ref=e52]: "최종 업데이트: 4/17/2026"
+        - generic [ref=e53] [cursor=pointer]:
+          - generic [ref=e54]:
+            - generic [ref=e55]:
+              - generic [ref=e56]: 03_2026년 신세계아이앤씨 FAB 구축 (서버파트)
+              - generic [ref=e57]: "#74 3_기능개선"
+            - generic [ref=e58]: 상위
+          - generic [ref=e59]: "최종 업데이트: 4/17/2026"
+        - generic [ref=e60] [cursor=pointer]:
+          - generic [ref=e61]:
+            - generic [ref=e62]:
+              - generic [ref=e63]: 01_2026년 FAP V3 릴리즈
+              - generic [ref=e64]: "#776 4_6_작업계획서"
+            - generic [ref=e65]: 상위
+          - generic [ref=e66]: "최종 업데이트: 4/17/2026"
+        - generic [ref=e67] [cursor=pointer]:
+          - generic [ref=e68]:
+            - generic [ref=e69]:
+              - generic [ref=e70]: 01_2026년 FAP V3 릴리즈
+              - generic [ref=e71]: "#763 4_5_인벤토리"
+            - generic [ref=e72]: 상위
+          - generic [ref=e73]: "최종 업데이트: 4/17/2026"
+        - generic [ref=e74] [cursor=pointer]:
+          - generic [ref=e75]:
+            - generic [ref=e76]:
+              - generic [ref=e77]: 01_2026년 FAP V3 릴리즈
+              - generic [ref=e78]: "#759 4_4_작업결재"
+            - generic [ref=e79]: 상위
+          - generic [ref=e80]: "최종 업데이트: 4/17/2026"
+        - generic [ref=e81] [cursor=pointer]:
+          - generic [ref=e82]:
+            - generic [ref=e83]:
+              - generic [ref=e84]: 01_2026년 FAP V3 릴리즈
+              - generic [ref=e85]: "#1067 4_13_조직/역할/사용자관리"
+            - generic [ref=e86]: 상위
+          - generic [ref=e87]: "최종 업데이트: 4/17/2026"
+        - generic [ref=e88] [cursor=pointer]:
+          - generic [ref=e89]:
+            - generic [ref=e90]:
+              - generic [ref=e91]: 01_2026년 FAP V3 릴리즈
+              - generic [ref=e92]: "#1080 4_16_작업보고서"
+            - generic [ref=e93]: 상위
+          - generic [ref=e94]: "최종 업데이트: 4/17/2026"
+        - generic [ref=e95] [cursor=pointer]:
+          - generic [ref=e96]:
+            - generic [ref=e97]:
+              - generic [ref=e98]: 01_2026년 FAP V3 릴리즈
+              - generic [ref=e99]: "#1078 4_15_작업결과"
+            - generic [ref=e100]: 상위
+          - generic [ref=e101]: "최종 업데이트: 4/17/2026"

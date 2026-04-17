@@ -42,6 +42,8 @@ function initRedmineEntrySplitButton() {
         menu.hidden = false;
     };
 
+    closeMenu();
+
     toggleButton.addEventListener('click', () => {
         if (menu.hidden) {
             openMenu();
