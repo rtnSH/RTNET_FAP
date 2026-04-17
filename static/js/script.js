@@ -599,16 +599,22 @@ function populateSelect(select, items, options = {}) {
     items.forEach((item) => {
         const option = document.createElement('option');
         option.value = String(item?.[valueKey] ?? '');
-        option.textContent = labelBuilder ? labelBuilder(item) : String(item?.[labelKey] ?? '');
+        
+        let label = labelBuilder ? labelBuilder(item) : String(item?.[labelKey] ?? '');
         
         if (depthBuilder) {
             const depth = depthBuilder(item);
             option.dataset.depth = String(depth);
+            
+            const depthPrefix = depth === 0 ? '● ' : '  ' + '— '.repeat(depth);
+            label = `${depthPrefix}${label}`;
+            
             if (depth > 0) {
                 option.style.paddingLeft = `${8 + depth * 16}px`;
             }
         }
         
+        option.textContent = label;
         select.appendChild(option);
     });
 
