@@ -1,0 +1,14 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - heading "Redmine History" [level=1] [ref=e4]
+    - paragraph [ref=e5]: 이슈 번호 또는 내용을 입력하여 변경 이력을 확인하세요.
+  - generic [ref=e6]:
+    - generic [ref=e7] [cursor=pointer]:
+      - radio "내부망 (192.168...)" [ref=e8]
+      - text: 내부망 (192.168...)
+    - generic [ref=e10] [cursor=pointer]:
+      - radio "외부망 (125.131...)" [checked] [ref=e11]
+      - text: 외부망 (125.131...)
+  - generic [ref=e13]:
+    - textbox "이슈 번호 또는 검색어" [active] [ref=e14]
+    - button "검색" [ref=e15] [cursor=pointer]

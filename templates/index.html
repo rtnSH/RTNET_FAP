@@ -5,31 +5,61 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Redmine History Search</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 </head>
-<body>
+<body
+    class="app-mode-{{ app_mode }}"
+    data-app-mode="{{ app_mode }}"
+    data-default-network="{{ default_network }}"
+>
     <div class="container">
         <header>
             <h1>Redmine History</h1>
             <p>이슈 번호 또는 내용을 입력하여 변경 이력을 확인하세요.</p>
         </header>
 
+        {% if app_mode == 'development' %}
         <section class="network-selection">
             <label class="radio-container">
+                {% if default_network == 'internal' %}
+                <input type="radio" name="network" value="internal" checked>
+                {% else %}
                 <input type="radio" name="network" value="internal">
+                {% endif %}
                 <span class="checkmark"></span>
                 내부망 (192.168...)
             </label>
             <label class="radio-container">
+                {% if default_network == 'external' %}
                 <input type="radio" name="network" value="external" checked>
+                {% else %}
+                <input type="radio" name="network" value="external">
+                {% endif %}
                 <span class="checkmark"></span>
                 외부망 (125.131...)
             </label>
         </section>
+        {% endif %}
 
         <section class="search-box">
-            <input type="text" id="issue-query" placeholder="이슈 번호 또는 검색어" autofocus>
-            <button id="search-btn">검색</button>
+            <div class="search-input-row">
+                <input type="text" id="issue-query" placeholder="이슈 번호 또는 검색어">
+                <button type="button" id="search-btn">검색</button>
+            </div>
+            <div class="search-support-row">
+                <a
+                    href="{{ redmine_entry_url }}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="redmine-entry-btn"
+                    aria-label="레드마인 바로가기"
+                >
+                    <span class="redmine-entry-copy">
+                        <span class="redmine-entry-title">레드마인 바로가기</span>
+                    </span>
+                    <span class="redmine-entry-arrow" aria-hidden="true">↗</span>
+                </a>
+            </div>
         </section>
 
         <main id="result-area" class="hidden">
@@ -39,7 +69,7 @@
             </div>
 
             <div id="issue-detail" class="hidden">
-                <button id="back-btn" class="secondary-btn">← 목록으로</button>
+                <button type="button" id="back-btn" class="secondary-btn">← 목록으로</button>
                 <div class="card issue-info">
                 <div class="card-header">
                     <span id="res-status" class="badge">Status</span>
@@ -51,17 +81,28 @@
                         <p><strong>담당자:</strong> <span id="res-assignee"></span></p>
                         <p><strong>우선순위:</strong> <span id="res-priority"></span></p>
                     </div>
-                    <div class="issue-links-section">
-                        <p><strong>내부망 바로가기:</strong> <a id="res-link-internal" href="#" target="_blank" class="external-link"></a></p>
-                        <p><strong>외부망 바로가기:</strong> <a id="res-link-external" href="#" target="_blank" class="external-link"></a></p>
+                    {% if app_mode == 'deploy' %}
+                    <div class="issue-links-section issue-links-section--deploy">
+                        <span class="issue-links-kicker">외부 Redmine</span>
+                        <a id="res-link-external" href="#" target="_blank" rel="noopener noreferrer" class="issue-link-card" aria-label="외부망 Redmine 링크">
+                            <span class="issue-link-card-title">원본 이슈 페이지 열기</span>
+                            <span class="issue-link-card-subtitle">외부 Redmine에서 상세 내용을 이어서 확인합니다.</span>
+                        </a>
                     </div>
+                    {% else %}
+                    <div class="issue-links-section">
+                        <p><strong>내부망 바로가기:</strong> <a id="res-link-internal" href="#" target="_blank" rel="noopener noreferrer" class="external-link" aria-label="내부망 Redmine 링크">내부 Redmine 열기</a></p>
+                        <p><strong>외부망 바로가기:</strong> <a id="res-link-external" href="#" target="_blank" rel="noopener noreferrer" class="external-link" aria-label="외부망 Redmine 링크">외부 Redmine 열기</a></p>
+                    </div>
+                    {% endif %}
                 </div>
                 <div id="res-description" class="description"></div>
-            </div>
+                </div>
 
-            <div class="history-list">
-                <h3>변경 이력</h3>
-                <div id="journals-container"></div>
+                <div class="history-list">
+                    <h3>변경 이력</h3>
+                    <div id="journals-container"></div>
+                </div>
             </div>
         </main>
 
@@ -71,7 +112,6 @@
 
         <div id="error-msg" class="error hidden"></div>
     </div>
-
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body>
 </html>

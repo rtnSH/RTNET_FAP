@@ -1,6 +1,17 @@
+const appConfig = getAppConfig();
+const networkInputs = document.querySelectorAll('input[name="network"]');
+
 document.getElementById('search-btn').addEventListener('click', searchIssue);
 document.getElementById('issue-query').addEventListener('keypress', (e) => {
     if (e.key === 'Enter') searchIssue();
+});
+
+networkInputs.forEach((input) => {
+    input.addEventListener('change', () => {
+        if (shouldRefreshRecentIssues()) {
+            loadRecentIssues();
+        }
+    });
 });
 
 document.getElementById('back-btn').addEventListener('click', () => {
@@ -8,11 +19,33 @@ document.getElementById('back-btn').addEventListener('click', () => {
     document.getElementById('search-list').classList.remove('hidden');
 });
 
+loadRecentIssues();
+
+function getAppConfig() {
+    const { dataset } = document.body;
+
+    return {
+        appMode: dataset.appMode || 'development',
+        defaultNetwork: dataset.defaultNetwork || 'internal'
+    };
+}
+
+function getSelectedNetwork() {
+    const checkedInput = document.querySelector('input[name="network"]:checked');
+    return checkedInput?.value || appConfig.defaultNetwork || 'internal';
+}
+
+function shouldRefreshRecentIssues() {
+    const issueDetailVisible = !document.getElementById('issue-detail').classList.contains('hidden');
+    const hasSearchQuery = document.getElementById('issue-query').value.trim().length > 0;
+    return !issueDetailVisible && !hasSearchQuery;
+}
+
 async function searchIssue() {
     const query = document.getElementById('issue-query').value.trim();
     if (!query) return;
 
-    const network = document.querySelector('input[name="network"]:checked').value;
+    const network = getSelectedNetwork();
     const loader = document.getElementById('loader');
     const resultArea = document.getElementById('result-area');
     const searchList = document.getElementById('search-list');
@@ -37,7 +70,10 @@ async function searchIssue() {
             issueDetail.classList.remove('hidden');
             document.getElementById('back-btn').classList.add('hidden');
         } else {
-            renderSearchList(result.data);
+            renderSearchList(result.data, {
+                heading: '검색 결과',
+                emptyMessage: '검색 결과가 없습니다.'
+            });
             searchList.classList.remove('hidden');
         }
     } catch (err) {
@@ -48,8 +84,42 @@ async function searchIssue() {
     }
 }
 
+async function loadRecentIssues() {
+    const network = getSelectedNetwork();
+    const loader = document.getElementById('loader');
+    const resultArea = document.getElementById('result-area');
+    const searchList = document.getElementById('search-list');
+    const issueDetail = document.getElementById('issue-detail');
+    const errorMsg = document.getElementById('error-msg');
+
+    loader.classList.remove('hidden');
+    resultArea.classList.add('hidden');
+    searchList.classList.add('hidden');
+    issueDetail.classList.add('hidden');
+    errorMsg.classList.add('hidden');
+
+    try {
+        const response = await fetch(`/api/recent?network=${network}`);
+        const result = await response.json();
+
+        if (result.error) throw new Error(result.error);
+
+        renderSearchList(result.data, {
+            heading: '최근 이슈',
+            emptyMessage: '최근 이슈가 없습니다.'
+        });
+        resultArea.classList.remove('hidden');
+        searchList.classList.remove('hidden');
+    } catch (err) {
+        errorMsg.textContent = `오류: ${err.message}`;
+        errorMsg.classList.remove('hidden');
+    } finally {
+        loader.classList.add('hidden');
+    }
+}
+
 async function viewDetail(issueId) {
-    const network = document.querySelector('input[name="network"]:checked').value;
+    const network = getSelectedNetwork();
     const loader = document.getElementById('loader');
     const searchList = document.getElementById('search-list');
     const issueDetail = document.getElementById('issue-detail');
@@ -71,22 +141,36 @@ async function viewDetail(issueId) {
     }
 }
 
-function renderSearchList(items) {
+function renderSearchList(items, options = {}) {
     const container = document.getElementById('list-container');
+    const heading = document.querySelector('#search-list h3');
+    const headingText = options.heading || '검색 결과';
+    const emptyMessage = options.emptyMessage || '검색 결과가 없습니다.';
+
+    if (heading) {
+        heading.textContent = headingText;
+    }
+
     container.innerHTML = '';
 
     if (items.length === 0) {
-        container.innerHTML = '<p style="text-align:center; padding: 20px;">검색 결과가 없습니다.</p>';
+        container.innerHTML = `<p style="text-align:center; padding: 20px;">${emptyMessage}</p>`;
         return;
     }
 
     items.forEach(item => {
         const date = new Date(item.updated_on).toLocaleDateString();
+        const projectHierarchy = item.project_hierarchy
+            ? `<div class="search-item-meta">${escapeHTML(item.project_hierarchy)}</div>`
+            : '';
         const html = `
             <div class="search-item" onclick="viewDetail(${item.id})">
                 <div class="search-item-header">
-                    <span class="search-item-title">#${item.id} ${item.subject}</span>
-                    <span class="badge">${item.status}</span>
+                    <div>
+                        ${projectHierarchy}
+                        <div class="search-item-title">#${item.id} ${escapeHTML(item.subject || '')}</div>
+                    </div>
+                    <span class="badge">${escapeHTML(item.status || '')}</span>
                 </div>
                 <div class="search-item-meta">최종 업데이트: ${date}</div>
             </div>
@@ -96,33 +180,32 @@ function renderSearchList(items) {
 }
 
 function renderIssueDetail(data) {
-    const network = document.querySelector('input[name="network"]:checked').value;
-    
+    const network = getSelectedNetwork();
+
     document.getElementById('res-subject').textContent = `#${data.id} ${data.subject}`;
     document.getElementById('res-status').textContent = data.status;
     document.getElementById('res-author').textContent = data.author;
     document.getElementById('res-assignee').textContent = data.assigned_to;
     document.getElementById('res-priority').textContent = data.priority;
-    
-    // Set both Redmine links
+
     const internalLink = document.getElementById('res-link-internal');
     const externalLink = document.getElementById('res-link-external');
+
     if (internalLink && data.redmine_url_internal) {
         internalLink.href = data.redmine_url_internal;
-        internalLink.textContent = data.redmine_url_internal;
-    }
-    if (externalLink && data.redmine_url_external) {
-        externalLink.href = data.redmine_url_external;
-        externalLink.textContent = data.redmine_url_external;
+        internalLink.title = data.redmine_url_internal;
     }
 
-    // Use innerHTML with escaped/processed text
+    if (externalLink && data.redmine_url_external) {
+        externalLink.href = data.redmine_url_external;
+        externalLink.title = data.redmine_url_external;
+    }
+
     const resDescription = document.getElementById('res-description');
     if (resDescription) {
         resDescription.innerHTML = processRedmineText(data.description, data.attachments, network) || '설명 없음';
     }
 
-    // Render attachments section (at the bottom)
     const existingAttachments = document.querySelector('.attachments-section');
     if (existingAttachments) existingAttachments.remove();
 
@@ -135,7 +218,7 @@ function renderIssueDetail(data) {
         data.attachments.forEach(att => {
             const isImage = att.content_type.startsWith('image/');
             const url = `/api/attachment/${att.id}?network=${network}`;
-            
+
             if (isImage) {
                 grid.insertAdjacentHTML('beforeend', `
                     <div class="attachment-item">
@@ -166,7 +249,7 @@ function renderIssueDetail(data) {
 
         const date = new Date(journal.created_on).toLocaleString();
         const processedNotes = processRedmineText(journal.notes, data.attachments, network);
-        
+
         const html = `
             <div class="journal-item">
                 <div class="journal-header">
@@ -202,14 +285,12 @@ function escapeHTML(str) {
 
 function processRedmineText(text, attachments, network) {
     if (!text) return "";
-    
+
     console.log("Processing text. Available attachments:", attachments.map(a => `${a.filename} (${a.description || ''})`));
 
-    // 1. First, handle existing <img> tags if they are in the raw text
-    // Replace src="filename.png" with src="/api/attachment/ID"
     let processed = text.replace(/<img[^>]+src=["']([^"']+)["'][^>]*>/gi, (match, src) => {
         const filename = src.split('/').pop().trim();
-        const att = attachments.find(a => 
+        const att = attachments.find(a =>
             a.filename.toLowerCase() === filename.toLowerCase() ||
             (a.description && a.description.toLowerCase() === filename.toLowerCase())
         );
@@ -220,40 +301,33 @@ function processRedmineText(text, attachments, network) {
         return match;
     });
 
-    // 2. Escape HTML for safety for the remaining textile-style tags
-    // NOTE: This might double-escape if the input already had HTML. 
-    // For Redmine, usually it's either all Textile/Markdown or someone pasted HTML.
-    // If it was already HTML and we escape it, we break the <img> tags we just fixed.
-    // So let's only escape if we DON'T detect HTML.
     const hasHTML = /<[a-z][\s\S]*>/i.test(processed);
     let escaped = hasHTML ? processed : escapeHTML(processed);
-    
-    // 3. Convert Redmine image tags !filename! or !description! to <img> 
+
     const regex = /!(\{([^}]*)\})?([<>=])?(\(([^)]*)\))?([^!\n\r]+)!/g;
-    
-    return escaped.replace(regex, (match, fmt, fmtContent, align, title, titleContent, filename) => {
+
+    return escaped.replace(regex, (match, _fmt, _fmtContent, align, _title, titleContent, filename) => {
         let cleanFilename = filename.trim().replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
-        
-        // Match by filename OR description
-        const att = attachments.find(a => 
+
+        const att = attachments.find(a =>
             a.filename.toLowerCase() === cleanFilename.toLowerCase() ||
             (a.description && a.description.toLowerCase() === cleanFilename.toLowerCase()) ||
             a.filename.toLowerCase().includes(cleanFilename.toLowerCase()) ||
             (a.description && a.description.toLowerCase().includes(cleanFilename.toLowerCase()))
         );
-        
+
         console.log(`Checking tag: ${match}, Clean text: ${cleanFilename}, Matched:`, att ? att.filename : "None");
 
         if (att && att.content_type.startsWith('image/')) {
             const url = `/api/attachment/${att.id}?network=${network}`;
             let style = 'max-width: 100%; height: auto; border-radius: 4px; border: 1px solid #30363d; margin: 10px 0; display: block;';
-            
+
             if (align === '<') style += ' float: left; margin-right: 10px;';
             else if (align === '>') style += ' float: right; margin-left: 10px;';
             else if (align === '=') style += ' margin-left: auto; margin-right: auto;';
-            
+
             return `<img src="${url}" alt="${escapeHTML(att.filename)}" style="${style}" title="${escapeHTML(titleContent || att.filename)}">`;
         }
-        return match; 
+        return match;
     });
 }
