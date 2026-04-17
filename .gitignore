@@ -9,3 +9,4 @@ ENV/
 .vscode/
 .idea/
 .opencode/
+.playwright-mcp/

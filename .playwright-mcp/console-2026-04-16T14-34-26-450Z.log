@@ -1,2 +1,0 @@
-[     467ms] [ERROR] Failed to load resource: the server responded with a status of 404 (NOT FOUND) @ http://127.0.0.1:5052/favicon.ico:0
-[  115405ms] [ERROR] Failed to load resource: net::ERR_EMPTY_RESPONSE @ http://127.0.0.1:5052/api/recent?network=external:0
