@@ -478,6 +478,32 @@ header p {
   display: none;
 }
 
+#create-project option {
+  background: var(--bg-color);
+  color: var(--text-primary);
+}
+
+#create-project option:first-child {
+  font-weight: 600;
+}
+
+#create-project option[data-depth="0"] {
+  color: var(--accent-color-strong);
+  font-weight: 600;
+}
+
+#create-project option[data-depth="1"] {
+  color: var(--text-primary);
+}
+
+#create-project option[data-depth="2"] {
+  color: var(--text-secondary);
+}
+
+#create-project option[data-depth="3"] {
+  color: var(--text-muted);
+}
+
 .create-form input[type="text"],
 .create-form select,
 .create-form textarea,

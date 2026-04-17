@@ -272,7 +272,8 @@ async function loadCreateOptions({ preserveSelections = true, preserveFeedback =
                 const depth = Number(item?.depth || 0);
                 const indentation = depth > 0 ? `${'— '.repeat(depth)}` : '';
                 return `${indentation}${item.name}`;
-            }
+            },
+            depthBuilder: (item) => Number(item?.depth || 0)
         });
 
         populateSelect(elements.tracker, result.trackers || [], {
@@ -582,6 +583,7 @@ function populateSelect(select, items, options = {}) {
         valueKey = 'id',
         labelKey = 'name',
         labelBuilder = null,
+        depthBuilder = null,
         selectedValue = ''
     } = options;
 
@@ -598,6 +600,15 @@ function populateSelect(select, items, options = {}) {
         const option = document.createElement('option');
         option.value = String(item?.[valueKey] ?? '');
         option.textContent = labelBuilder ? labelBuilder(item) : String(item?.[labelKey] ?? '');
+        
+        if (depthBuilder) {
+            const depth = depthBuilder(item);
+            option.dataset.depth = String(depth);
+            if (depth > 0) {
+                option.style.paddingLeft = `${8 + depth * 16}px`;
+            }
+        }
+        
         select.appendChild(option);
     });
 
