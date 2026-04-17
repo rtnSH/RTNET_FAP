@@ -153,6 +153,7 @@ function initCreatePanel() {
     elements.fileList?.addEventListener('click', handleCreateFileListClick);
     elements.project?.addEventListener('change', renderCreateProjectPath);
 
+    initProjectBottomSheet();
     renderCreateAdvancedSummary();
 }
 
@@ -166,6 +167,12 @@ function getCreateElements() {
         feedback: document.getElementById('create-feedback'),
         form: document.getElementById('create-form'),
         project: document.getElementById('create-project'),
+        projectSelectorBtn: document.getElementById('project-selector-btn'),
+        projectSelectorText: document.querySelector('.project-selector-text'),
+        projectBottomSheet: document.getElementById('project-bottom-sheet'),
+        projectBsClose: document.getElementById('project-bs-close'),
+        projectBsSearch: document.getElementById('project-bs-search'),
+        projectBsList: document.getElementById('project-bs-list'),
         tracker: document.getElementById('create-tracker'),
         assignee: document.getElementById('create-assignee'),
         status: document.getElementById('create-status'),
@@ -275,6 +282,8 @@ async function loadCreateOptions({ preserveSelections = true, preserveFeedback =
             },
             depthBuilder: (item) => Number(item?.depth || 0)
         });
+
+        populateProjectBottomSheet(result.projects || [], currentValues.projectId);
 
         populateSelect(elements.tracker, result.trackers || [], {
             placeholder: '유형 선택',
@@ -607,14 +616,12 @@ function populateSelect(select, items, options = {}) {
             option.dataset.depth = String(depth);
             
             if (depth > 0) {
-                const indent = '  ' + '> '.repeat(depth - 1) + '> ';
-                option.textContent = `${indent}${label}`;
+                const indent = '  ';
+                const prefix = '▸ ';
+                option.textContent = `${indent}${prefix}${label}`;
+                option.style.paddingLeft = `${8 + depth * 16}px`;
             } else {
                 option.textContent = label;
-            }
-            
-            if (depth > 0) {
-                option.style.paddingLeft = `${8 + depth * 16}px`;
             }
         } else {
             option.textContent = label;
@@ -818,6 +825,9 @@ function resetCreateDraft(options = {}) {
     if (!preserveScope) {
         if (elements.project) {
             elements.project.value = '';
+            if (elements.projectSelectorText) {
+                elements.projectSelectorText.textContent = '프로젝트 선택';
+            }
         }
 
         if (elements.tracker) {
@@ -1257,4 +1267,170 @@ function processRedmineText(text, attachments, network) {
         }
         return match;
     });
+}
+
+// ============================================================================
+// Project Selection Bottom Sheet Logic
+// ============================================================================
+
+function initProjectBottomSheet() {
+    const { projectSelectorBtn, projectBottomSheet, projectBsClose, projectBsSearch } = getCreateElements();
+
+    if (!projectSelectorBtn || !projectBottomSheet) {
+        return;
+    }
+
+    projectSelectorBtn.addEventListener('click', () => {
+        openProjectBottomSheet();
+    });
+
+    projectBsClose?.addEventListener('click', () => {
+        closeProjectBottomSheet();
+    });
+
+    projectBottomSheet.addEventListener('click', (event) => {
+        if (event.target === projectBottomSheet) {
+            closeProjectBottomSheet();
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !projectBottomSheet.classList.contains('hidden')) {
+            closeProjectBottomSheet();
+            projectSelectorBtn.focus();
+        }
+    });
+
+    projectBsSearch?.addEventListener('input', (event) => {
+        const query = event.target.value.trim().toLowerCase();
+        filterProjectBottomSheet(query);
+    });
+}
+
+function openProjectBottomSheet() {
+    const { projectBottomSheet, projectBsSearch, projectSelectorBtn } = getCreateElements();
+    if (!projectBottomSheet) return;
+
+    projectBottomSheet.classList.remove('hidden');
+    projectSelectorBtn.setAttribute('aria-expanded', 'true');
+    
+    if (projectBsSearch) {
+        projectBsSearch.value = '';
+        filterProjectBottomSheet('');
+        setTimeout(() => projectBsSearch.focus(), 100);
+    }
+}
+
+function closeProjectBottomSheet() {
+    const { projectBottomSheet, projectSelectorBtn } = getCreateElements();
+    if (!projectBottomSheet) return;
+
+    projectBottomSheet.classList.add('hidden');
+    projectSelectorBtn.setAttribute('aria-expanded', 'false');
+}
+
+function populateProjectBottomSheet(projects, selectedValue) {
+    const { projectBsList, projectSelectorText, project } = getCreateElements();
+    if (!projectBsList) return;
+
+    projectBsList.innerHTML = '';
+    
+    // Add "Select Project" as default option
+    const defaultItem = document.createElement('li');
+    defaultItem.className = 'bottom-sheet-item';
+    defaultItem.textContent = '프로젝트 선택';
+    defaultItem.dataset.id = '';
+    defaultItem.addEventListener('click', () => handleProjectSelection('', '프로젝트 선택'));
+    projectBsList.appendChild(defaultItem);
+
+    let selectedName = '프로젝트 선택';
+
+    projects.forEach((item) => {
+        const li = document.createElement('li');
+        li.className = 'bottom-sheet-item';
+        
+        const depth = Number(item?.depth || 0);
+        li.dataset.depth = String(depth);
+        
+        if (depth > 0) {
+            const indent = 16 * depth;
+            li.style.paddingLeft = `${20 + indent}px`;
+        }
+
+        const label = String(item?.name || '');
+        li.textContent = label;
+        li.dataset.id = String(item?.id || '');
+        li.dataset.search = label.toLowerCase();
+        
+        if (String(item.id) === String(selectedValue)) {
+            li.classList.add('active');
+            selectedName = label;
+        }
+
+        li.addEventListener('click', () => {
+            handleProjectSelection(li.dataset.id, label);
+        });
+
+        projectBsList.appendChild(li);
+    });
+
+    if (projectSelectorText) {
+        projectSelectorText.textContent = selectedName;
+    }
+    
+    // Also sync the hidden select text for project path rendering if needed
+    if (project && project.options.length > 0) {
+        const option = Array.from(project.options).find(o => o.value === String(selectedValue));
+        if (option) {
+            project.value = String(selectedValue);
+        } else {
+            project.value = '';
+        }
+    }
+}
+
+function filterProjectBottomSheet(query) {
+    const { projectBsList } = getCreateElements();
+    if (!projectBsList) return;
+
+    const items = projectBsList.querySelectorAll('.bottom-sheet-item');
+    items.forEach((item) => {
+        if (!item.dataset.id) {
+            // Default "Select Project" item
+            item.classList.toggle('hidden', query.length > 0);
+            return;
+        }
+        
+        const searchTarget = item.dataset.search || '';
+        if (searchTarget.includes(query)) {
+            item.classList.remove('hidden');
+        } else {
+            item.classList.add('hidden');
+        }
+    });
+}
+
+function handleProjectSelection(id, name) {
+    const { project, projectSelectorText } = getCreateElements();
+    
+    if (projectSelectorText) {
+        projectSelectorText.textContent = name;
+    }
+
+    if (project) {
+        project.value = id;
+        // Dispatch change event to trigger existing logic like prefill and path rendering
+        const event = new Event('change', { bubbles: true });
+        project.dispatchEvent(event);
+    }
+    
+    // Highlight active item
+    const { projectBsList } = getCreateElements();
+    if (projectBsList) {
+        projectBsList.querySelectorAll('.bottom-sheet-item').forEach(item => {
+            item.classList.toggle('active', item.dataset.id === String(id));
+        });
+    }
+
+    closeProjectBottomSheet();
 }

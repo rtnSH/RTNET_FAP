@@ -111,13 +111,17 @@
                 <form id="create-form" class="create-form" novalidate>
                     <div class="create-form-layout">
                         <div class="create-form-row create-form-row--single">
-                            <label class="create-field create-field--full">
-                                <span>프로젝트</span>
-                                <select id="create-project" name="project_id" required>
-                                    <option value="">프로젝트 선택</option>
-                                </select>
-                            </label>
-                            <div id="create-project-path" class="create-project-path" aria-live="polite"></div>
+                            <div class="create-field create-field--full">
+                            <span>프로젝트</span>
+                            <select id="create-project" name="project_id" required class="hidden-select" style="display: none;">
+                                <option value="">프로젝트 선택</option>
+                            </select>
+                            <button type="button" id="project-selector-btn" class="project-selector-btn">
+                                <span class="project-selector-text">프로젝트 선택</span>
+                                <span class="project-selector-icon">▾</span>
+                            </button>
+                        </div>
+                        <div id="create-project-path" class="create-project-path hidden" aria-live="polite"></div>
                         </div>
                         <div class="create-form-row create-form-row--split">
                             <label class="create-field">
@@ -240,6 +244,23 @@
                 </div>
             </div>
         </main>
+
+        <div id="project-bottom-sheet" class="bottom-sheet-overlay hidden">
+            <div class="bottom-sheet-content">
+                <div class="bottom-sheet-header">
+                    <h3>프로젝트 검색</h3>
+                    <button type="button" id="project-bs-close" class="bottom-sheet-close" aria-label="닫기">&times;</button>
+                </div>
+                <div class="bottom-sheet-search">
+                    <input type="text" id="project-bs-search" placeholder="프로젝트명 검색..." autocomplete="off">
+                </div>
+                <div class="bottom-sheet-list-container">
+                    <ul id="project-bs-list" class="bottom-sheet-list">
+                        <!-- JS로 <li> 항목들이 렌더링됨 -->
+                    </ul>
+                </div>
+            </div>
+        </div>
 
         <div id="loader" class="hidden">
             <div class="spinner"></div>
