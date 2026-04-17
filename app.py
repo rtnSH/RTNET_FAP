@@ -222,7 +222,7 @@ def format_project_hierarchy_from_json(issue):
     return build_project_hierarchy(project.get('name'), parent_project.get('name'))
 
 def format_issue(issue):
-    internal_issue_url = f"{REDMINE_URL_INTERNAL}/issues/{issue.id}" if APP_MODE != 'deploy' else None
+    internal_issue_url = f"{REDMINE_URL_INTERNAL}/issues/{issue.id}"
 
     journals = []
     for journal in issue.journals:

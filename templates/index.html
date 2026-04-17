@@ -83,10 +83,14 @@
                     </div>
                     {% if app_mode == 'deploy' %}
                     <div class="issue-links-section issue-links-section--deploy">
-                        <span class="issue-links-kicker">외부 Redmine</span>
+                        <span class="issue-links-kicker">Redmine 직접 열기</span>
+                        <a id="res-link-internal" href="#" target="_blank" rel="noopener noreferrer" class="issue-link-card" aria-label="내부망 Redmine 링크">
+                            <span class="issue-link-card-title">내부 Redmine 열기</span>
+                            <span class="issue-link-card-subtitle">사내 Wi-Fi 또는 내부 접근 환경에서 사용할 내부 주소입니다.</span>
+                        </a>
                         <a id="res-link-external" href="#" target="_blank" rel="noopener noreferrer" class="issue-link-card" aria-label="외부망 Redmine 링크">
-                            <span class="issue-link-card-title">원본 이슈 페이지 열기</span>
-                            <span class="issue-link-card-subtitle">외부 Redmine에서 상세 내용을 이어서 확인합니다.</span>
+                            <span class="issue-link-card-title">외부 Redmine 열기</span>
+                            <span class="issue-link-card-subtitle">배포 모드와 동일한 외부 주소로 상세 내용을 이어서 확인합니다.</span>
                         </a>
                     </div>
                     {% else %}
