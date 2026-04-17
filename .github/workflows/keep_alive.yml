@@ -1,0 +1,24 @@
+name: Keep Render Awake
+
+on:
+  schedule:
+    # Render 무료 티어는 15분 미사용 시 휴면 상태가 되므로 10~14분 주기도 충분합니다.
+    # 5분 주기도 괜찮지만, GitHub Actions 사용량을 아끼려면 조금 늘려도 좋습니다.
+    - cron: '*/10 * * * *' 
+  workflow_dispatch: # 수동 실행 버튼 활성화
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send ping request
+        run: |
+          # 타임존 설정 및 시각 출력
+          export TZ='Asia/Seoul'
+          echo "현재 시각 (KST): $(date)"
+          
+          # -f 옵션을 추가하여 접속 실패 시(404, 500 등) 에러를 발생시키도록 보완
+          # -s는 정적 모드, -S는 에러 발생 시 메시지 출력
+          curl -f -sS https://rtnet-fap-redmine.onrender.com/ > /dev/null
+          
+          echo "Render 앱 신호 전송 완료."

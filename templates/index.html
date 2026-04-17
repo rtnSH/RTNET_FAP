@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redmine History Search</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body
+    class="app-mode-{{ app_mode }}"
+    data-app-mode="{{ app_mode }}"
+    data-default-network="{{ default_network }}"
+>
+    <div class="container">
+        <header>
+            <h1>Redmine History</h1>
+            <p>이슈 번호 또는 내용을 입력하여 변경 이력을 확인하세요.</p>
+        </header>
+
+        {% if app_mode == 'development' %}
+        <section class="network-selection">
+            <label class="radio-container">
+                {% if default_network == 'internal' %}
+                <input type="radio" name="network" value="internal" checked>
+                {% else %}
+                <input type="radio" name="network" value="internal">
+                {% endif %}
+                <span class="checkmark"></span>
+                내부망 (192.168...)
+            </label>
+            <label class="radio-container">
+                {% if default_network == 'external' %}
+                <input type="radio" name="network" value="external" checked>
+                {% else %}
+                <input type="radio" name="network" value="external">
+                {% endif %}
+                <span class="checkmark"></span>
+                외부망 (125.131...)
+            </label>
+        </section>
+        {% endif %}
+
+        <section class="search-box">
+            <div class="search-input-row">
+                <input type="text" id="issue-query" placeholder="이슈 번호 또는 검색어">
+                <button type="button" id="search-btn">검색</button>
+            </div>
+            <div class="search-support-row">
+                <button
+                    type="button"
+                    id="open-create-btn"
+                    class="create-trigger-btn"
+                    aria-controls="create-panel"
+                    aria-expanded="false"
+                >
+                    이슈 등록
+                </button>
+                <div class="redmine-entry-split" data-redmine-entry-split>
+                    <a
+                        href="{{ redmine_entry_url }}"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="redmine-entry-btn redmine-entry-btn--primary"
+                        aria-label="레드마인 사이트 바로가기"
+                    >
+                        <span class="redmine-entry-copy">
+                            <span class="redmine-entry-title">레드마인 바로가기</span>
+                            <span class="redmine-entry-subtitle">사내 Wi-Fi는 내부망으로 변경</span>
+                        </span>
+                        <span class="redmine-entry-arrow" aria-hidden="true">↗</span>
+                    </a>
+                    <button
+                        type="button"
+                        class="redmine-entry-btn redmine-entry-btn--toggle"
+                        aria-label="레드마인 열기 대상 선택"
+                        aria-haspopup="menu"
+                        aria-expanded="false"
+                        aria-controls="redmine-entry-menu"
+                        data-redmine-entry-toggle
+                    >
+                        <span class="redmine-entry-toggle-icon" aria-hidden="true">▾</span>
+                    </button>
+                    <div
+                        id="redmine-entry-menu"
+                        class="redmine-entry-split-menu"
+                        role="menu"
+                        data-redmine-entry-menu
+                        hidden
+                    >
+                        <a href="{{ redmine_url_internal }}" target="_blank" rel="noopener noreferrer" class="redmine-entry-menu-item" role="menuitem">내부망으로 열기</a>
+                        <a href="{{ redmine_url_external }}" target="_blank" rel="noopener noreferrer" class="redmine-entry-menu-item" role="menuitem">외부망으로 열기</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="create-panel" class="create-panel hidden" aria-live="polite">
+            <div class="card create-card">
+                <div class="create-panel-header">
+                    <div>
+                        <span class="create-kicker">Issue create</span>
+                        <h3>이슈 등록</h3>
+                        <p>프로젝트와 유형을 선택하면 서버 기본값을 불러옵니다.</p>
+                    </div>
+                    <button type="button" id="close-create-btn" class="secondary-btn create-close-btn">닫기</button>
+                </div>
+
+                <div id="create-feedback" class="create-feedback hidden" role="status" aria-live="polite"></div>
+
+                <form id="create-form" class="create-form" novalidate>
+                    <div class="create-form-layout">
+                        <div class="create-form-row create-form-row--single">
+                            <div class="create-field create-field--full">
+                            <span>프로젝트</span>
+                            <select id="create-project" name="project_id" required class="hidden-select" style="display: none;">
+                                <option value="">프로젝트 선택</option>
+                            </select>
+                            <button type="button" id="project-selector-btn" class="project-selector-btn">
+                                <span class="project-selector-text">프로젝트 선택</span>
+                                <span class="project-selector-icon">▾</span>
+                            </button>
+                        </div>
+                        <div id="create-project-path" class="create-project-path hidden" aria-live="polite"></div>
+                        </div>
+                        <div class="create-form-row create-form-row--split">
+                            <label class="create-field">
+                                <span>유형</span>
+                                <select id="create-tracker" name="tracker_id" required>
+                                    <option value="">유형 선택</option>
+                                </select>
+                            </label>
+                            <label class="create-field">
+                                <span>담당자</span>
+                                <select id="create-assignee" name="assignee_key" required>
+                                    <option value="">담당자 선택</option>
+                                </select>
+                            </label>
+                        </div>
+                    </div>
+
+                    <label class="create-field">
+                        <span>제목</span>
+                        <input type="text" id="create-subject" name="subject" placeholder="제목을 입력하세요" required>
+                    </label>
+
+                    <label class="create-field">
+                        <span>설명</span>
+                        <textarea id="create-description" name="description" rows="6" placeholder="설명을 입력하세요"></textarea>
+                    </label>
+
+                     <details id="create-advanced" class="create-advanced">
+                         <summary class="create-advanced-summary">
+                             <span class="create-advanced-copy">
+                                 <span class="create-advanced-title">고급 설정</span>
+                                 <span class="create-advanced-hint">상태, 우선순위, 상위 일감, 첨부 파일</span>
+                             </span>
+                             <span id="create-advanced-state" class="create-advanced-state" aria-live="polite"></span>
+                         </summary>
+                        <div class="create-advanced-content">
+                            <div class="create-form-grid create-form-grid--advanced">
+                                <label class="create-field">
+                                    <span>상태</span>
+                                    <select id="create-status" name="status_id">
+                                        <option value="">상태 선택</option>
+                                    </select>
+                                </label>
+                                <label class="create-field">
+                                    <span>우선순위</span>
+                                    <select id="create-priority" name="priority_id">
+                                        <option value="">우선순위 선택</option>
+                                    </select>
+                                </label>
+                                <label class="create-field">
+                                    <span>상위 일감</span>
+                                    <select id="create-parent" name="parent_issue_id">
+                                        <option value="">프로젝트와 유형을 먼저 선택하세요</option>
+                                    </select>
+                                </label>
+                            </div>
+
+                            <div class="create-field create-field--files">
+                                <div class="create-file-header">
+                                    <span>첨부 파일</span>
+                                    <span class="create-file-hint">여러 파일 선택 가능</span>
+                                </div>
+                                <input type="file" id="create-files" name="files" multiple>
+                                <div id="create-file-list" class="create-file-list hidden"></div>
+                            </div>
+                        </div>
+                    </details>
+
+                    <div class="create-actions">
+                        <button type="submit" id="create-submit-btn">이슈 등록</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <main id="result-area" class="hidden">
+            <div id="search-list" class="hidden">
+                <h3>검색 결과</h3>
+                <div id="list-container"></div>
+            </div>
+
+            <div id="issue-detail" class="hidden">
+                <button type="button" id="back-btn" class="secondary-btn">← 목록으로</button>
+                <div class="card issue-info">
+                <div class="card-header">
+                    <span id="res-status" class="badge">Status</span>
+                    <h2 id="res-subject">Issue Subject</h2>
+                </div>
+                <div class="issue-meta">
+                    <div class="issue-meta-row">
+                        <p><strong>작성자:</strong> <span id="res-author"></span></p>
+                        <p><strong>담당자:</strong> <span id="res-assignee"></span></p>
+                        <p><strong>우선순위:</strong> <span id="res-priority"></span></p>
+                    </div>
+                    {% if app_mode == 'deploy' %}
+                    <div class="issue-links-section issue-links-section--deploy">
+                        <span class="issue-links-kicker">레드마인 직접 열기</span>
+                        <a id="res-link-internal" href="#" target="_blank" rel="noopener noreferrer" class="issue-link-card" aria-label="내부망 Redmine 링크">
+                            <span class="issue-link-card-title">내부망 바로가기</span>
+                            <span class="issue-link-card-subtitle">사내 Wi-Fi 또는 내부 접근 환경에서 사용할 내부 주소입니다.</span>
+                        </a>
+                        <a id="res-link-external" href="#" target="_blank" rel="noopener noreferrer" class="issue-link-card" aria-label="외부망 Redmine 링크">
+                            <span class="issue-link-card-title">외부망 바로가기</span>
+                            <span class="issue-link-card-subtitle">배포 모드와 동일한 외부 주소로 상세 내용을 이어서 확인합니다.</span>
+                        </a>
+                    </div>
+                    {% else %}
+                    <div class="issue-links-section">
+                        <p><strong>내부망 바로가기:</strong> <a id="res-link-internal" href="#" target="_blank" rel="noopener noreferrer" class="external-link" aria-label="내부망 Redmine 링크">내부 Redmine 열기</a></p>
+                        <p><strong>외부망 바로가기:</strong> <a id="res-link-external" href="#" target="_blank" rel="noopener noreferrer" class="external-link" aria-label="외부망 Redmine 링크">외부 Redmine 열기</a></p>
+                    </div>
+                    {% endif %}
+                </div>
+                <div id="res-description" class="description"></div>
+                </div>
+
+                <div class="history-list">
+                    <h3>변경 이력</h3>
+                    <div id="journals-container"></div>
+                </div>
+            </div>
+        </main>
+
+        <div id="project-bottom-sheet" class="bottom-sheet-overlay hidden">
+            <div class="bottom-sheet-content">
+                <div class="bottom-sheet-header">
+                    <h3>프로젝트 검색</h3>
+                    <button type="button" id="project-bs-close" class="bottom-sheet-close" aria-label="닫기">&times;</button>
+                </div>
+                <div class="bottom-sheet-search">
+                    <input type="text" id="project-bs-search" placeholder="프로젝트명 검색..." autocomplete="off">
+                </div>
+                <div class="bottom-sheet-list-container">
+                    <ul id="project-bs-list" class="bottom-sheet-list">
+                        <!-- JS로 <li> 항목들이 렌더링됨 -->
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div id="loader" class="hidden">
+            <div class="spinner"></div>
+        </div>
+
+        <div id="error-msg" class="error hidden"></div>
+    </div>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
