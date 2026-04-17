@@ -606,12 +606,18 @@ function populateSelect(select, items, options = {}) {
             const depth = depthBuilder(item);
             option.dataset.depth = String(depth);
             
-            const indent = depth > 0 ? '  ' + '│ '.repeat(depth - 1) + '└─ ' : '';
-            label = `${indent}${label}`;
+            if (depth > 0) {
+                const indent = '  ' + '> '.repeat(depth - 1) + '> ';
+                option.textContent = `${indent}${label}`;
+            } else {
+                option.textContent = label;
+            }
             
             if (depth > 0) {
                 option.style.paddingLeft = `${8 + depth * 16}px`;
             }
+        } else {
+            option.textContent = label;
         }
         
         option.textContent = label;
