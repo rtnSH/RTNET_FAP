@@ -92,6 +92,7 @@ def index():
         app_mode=APP_MODE,
         default_network=default_network,
         redmine_entry_url=get_redmine_base_url(default_network),
+        redmine_url_internal=REDMINE_URL_INTERNAL,
         redmine_url_external=REDMINE_URL_EXTERNAL,
     )
 

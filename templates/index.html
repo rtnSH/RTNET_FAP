@@ -47,18 +47,41 @@
                 <button type="button" id="search-btn">검색</button>
             </div>
             <div class="search-support-row">
-                <a
-                    href="{{ redmine_entry_url }}"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="redmine-entry-btn"
-                    aria-label="레드마인 바로가기"
-                >
-                    <span class="redmine-entry-copy">
-                        <span class="redmine-entry-title">레드마인 바로가기</span>
-                    </span>
-                    <span class="redmine-entry-arrow" aria-hidden="true">↗</span>
-                </a>
+                <div class="redmine-entry-split" data-redmine-entry-split>
+                    <a
+                        href="{{ redmine_entry_url }}"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="redmine-entry-btn redmine-entry-btn--primary"
+                        aria-label="레드마인 바로가기"
+                    >
+                        <span class="redmine-entry-copy">
+                            <span class="redmine-entry-title">레드마인 바로가기</span>
+                        </span>
+                        <span class="redmine-entry-arrow" aria-hidden="true">↗</span>
+                    </a>
+                    <button
+                        type="button"
+                        class="redmine-entry-btn redmine-entry-btn--toggle"
+                        aria-label="레드마인 열기 대상 선택"
+                        aria-haspopup="menu"
+                        aria-expanded="false"
+                        aria-controls="redmine-entry-menu"
+                        data-redmine-entry-toggle
+                    >
+                        <span class="redmine-entry-toggle-icon" aria-hidden="true">▾</span>
+                    </button>
+                    <div
+                        id="redmine-entry-menu"
+                        class="redmine-entry-split-menu"
+                        role="menu"
+                        data-redmine-entry-menu
+                        hidden
+                    >
+                        <a href="{{ redmine_url_internal }}" target="_blank" rel="noopener noreferrer" class="redmine-entry-menu-item" role="menuitem">내부망으로 열기</a>
+                        <a href="{{ redmine_url_external }}" target="_blank" rel="noopener noreferrer" class="redmine-entry-menu-item" role="menuitem">외부망으로 열기</a>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -83,13 +106,13 @@
                     </div>
                     {% if app_mode == 'deploy' %}
                     <div class="issue-links-section issue-links-section--deploy">
-                        <span class="issue-links-kicker">Redmine 직접 열기</span>
+                        <span class="issue-links-kicker">레드마인 직접 열기</span>
                         <a id="res-link-internal" href="#" target="_blank" rel="noopener noreferrer" class="issue-link-card" aria-label="내부망 Redmine 링크">
-                            <span class="issue-link-card-title">내부 Redmine 열기</span>
+                            <span class="issue-link-card-title">내부망 바로가기</span>
                             <span class="issue-link-card-subtitle">사내 Wi-Fi 또는 내부 접근 환경에서 사용할 내부 주소입니다.</span>
                         </a>
                         <a id="res-link-external" href="#" target="_blank" rel="noopener noreferrer" class="issue-link-card" aria-label="외부망 Redmine 링크">
-                            <span class="issue-link-card-title">외부 Redmine 열기</span>
+                            <span class="issue-link-card-title">외부망 바로가기</span>
                             <span class="issue-link-card-subtitle">배포 모드와 동일한 외부 주소로 상세 내용을 이어서 확인합니다.</span>
                         </a>
                     </div>

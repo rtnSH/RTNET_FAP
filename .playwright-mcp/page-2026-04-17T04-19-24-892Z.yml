@@ -1,0 +1,12 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - heading "Redmine History" [level=1] [ref=e4]
+    - paragraph [ref=e5]: 이슈 번호 또는 내용을 입력하여 변경 이력을 확인하세요.
+  - generic [ref=e6]:
+    - generic [ref=e7]:
+      - textbox "이슈 번호 또는 검색어" [ref=e8]
+      - button "검색" [ref=e9] [cursor=pointer]
+    - link "레드마인 바로가기" [ref=e11] [cursor=pointer]:
+      - /url: http://125.131.20.177:7890
+      - generic [ref=e13]: 레드마인 바로가기
+      - generic [ref=e14]: ↗

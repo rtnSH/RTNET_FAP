@@ -1,6 +1,8 @@
 const appConfig = getAppConfig();
 const networkInputs = document.querySelectorAll('input[name="network"]');
 
+initRedmineEntrySplitButton();
+
 document.getElementById('search-btn').addEventListener('click', searchIssue);
 document.getElementById('issue-query').addEventListener('keypress', (e) => {
     if (e.key === 'Enter') searchIssue();
@@ -20,6 +22,52 @@ document.getElementById('back-btn').addEventListener('click', () => {
 });
 
 loadRecentIssues();
+
+function initRedmineEntrySplitButton() {
+    const splitButton = document.querySelector('[data-redmine-entry-split]');
+    const toggleButton = document.querySelector('[data-redmine-entry-toggle]');
+    const menu = document.querySelector('[data-redmine-entry-menu]');
+
+    if (!splitButton || !toggleButton || !menu) {
+        return;
+    }
+
+    const closeMenu = () => {
+        toggleButton.setAttribute('aria-expanded', 'false');
+        menu.hidden = true;
+    };
+
+    const openMenu = () => {
+        toggleButton.setAttribute('aria-expanded', 'true');
+        menu.hidden = false;
+    };
+
+    toggleButton.addEventListener('click', () => {
+        if (menu.hidden) {
+            openMenu();
+            return;
+        }
+
+        closeMenu();
+    });
+
+    document.addEventListener('click', (event) => {
+        if (!splitButton.contains(event.target)) {
+            closeMenu();
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            closeMenu();
+            toggleButton.focus();
+        }
+    });
+
+    menu.querySelectorAll('a').forEach((item) => {
+        item.addEventListener('click', closeMenu);
+    });
+}
 
 function getAppConfig() {
     const { dataset } = document.body;
