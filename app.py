@@ -1,4 +1,5 @@
 import os
+import re
 from flask import Flask, render_template, request, jsonify, Response
 from redminelib import Redmine
 import requests
@@ -12,9 +13,23 @@ app = Flask(__name__)
 class ConfigError(Exception):
     pass
 
+
+class CreateIssueValidationError(Exception):
+    pass
+
 REDMINE_URL_INTERNAL = os.getenv('REDMINE_URL_INTERNAL')
 REDMINE_URL_EXTERNAL = os.getenv('REDMINE_URL_EXTERNAL')
 REDMINE_API_KEY = os.getenv('REDMINE_API_KEY')
+
+ASSIGNEE_MAP = {
+    'admin': {'label': '김윤권', 'login': 'admin'},
+    'cmkim': {'label': '김창민', 'login': 'cmkim'},
+    'ssjeon': {'label': '전상수', 'login': 'ssjeon'},
+    'sh.lee': {'label': '이수호', 'login': 'sh.lee'},
+}
+DEFAULT_STATUS_NAME = '신규'
+DEFAULT_PRIORITY_NAME = '보통'
+TITLE_PREFIX_PATTERN = re.compile(r'^(\d{2})_(\d+)')
 
 
 def normalize_network(network_type):
@@ -187,6 +202,129 @@ def get_attachment(attachment_id):
         return jsonify({'error': str(e)}), 404
 
 
+@app.route('/api/create/options')
+def get_create_options():
+    network_type = get_request_network()
+    try:
+        redmine = get_redmine(network_type)
+        projects = get_project_options(redmine)
+        trackers = get_tracker_options(redmine)
+        statuses = get_status_options(redmine)
+        priorities = get_priority_options(redmine)
+
+        return jsonify({
+            'projects': projects,
+            'trackers': trackers,
+            'statuses': statuses,
+            'priorities': priorities,
+            'assignees': get_assignee_options(),
+            'defaults': {
+                'status': find_named_option(statuses, DEFAULT_STATUS_NAME),
+                'priority': find_named_option(priorities, DEFAULT_PRIORITY_NAME),
+            }
+        })
+    except ConfigError as e:
+        return jsonify({'error': str(e)}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 404
+
+
+@app.route('/api/create/prefill')
+def get_create_prefill():
+    project_id = (request.args.get('project_id') or '').strip()
+    tracker_id = (request.args.get('tracker_id') or '').strip()
+    network_type = get_request_network()
+
+    if not project_id or not tracker_id:
+        return jsonify({'error': 'project_id와 tracker_id는 필수입니다.'}), 400
+
+    try:
+        redmine = get_redmine(network_type)
+        tracker = get_tracker_by_id(redmine, tracker_id)
+        if not tracker:
+            return jsonify({'error': '유효한 tracker_id를 찾지 못했습니다.'}), 404
+
+        scoped_issues = list(redmine.issue.filter(
+            project_id=project_id,
+            tracker_id=tracker_id,
+            status_id='*',
+            sort='created_on:asc',
+        ))
+
+        subject_default, subject_mode = resolve_subject_default(scoped_issues, tracker.name)
+        parent_issue_options = build_parent_issue_options(scoped_issues)
+        statuses = get_status_options(redmine)
+        priorities = get_priority_options(redmine)
+        default_parent = parent_issue_options[0] if parent_issue_options else None
+
+        return jsonify({
+            'project_id': project_id,
+            'tracker_id': tracker_id,
+            'subject_default': subject_default,
+            'subject_mode': subject_mode,
+            'parent_issue_default_id': default_parent['id'] if default_parent else None,
+            'parent_issue_options': parent_issue_options,
+            'default_status': find_named_option(statuses, DEFAULT_STATUS_NAME),
+            'default_priority': find_named_option(priorities, DEFAULT_PRIORITY_NAME),
+            'default_description': '',
+        })
+    except ConfigError as e:
+        return jsonify({'error': str(e)}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 404
+
+
+@app.route('/api/issues', methods=['POST'])
+def create_issue():
+    network_type = get_request_network()
+    try:
+        payload = parse_create_issue_payload()
+        redmine = get_redmine(network_type)
+        project = get_project_by_id(redmine, payload['project_id'])
+        if not project:
+            raise CreateIssueValidationError('유효한 프로젝트를 찾지 못했습니다.')
+
+        tracker = get_tracker_by_id(redmine, payload['tracker_id'])
+        if not tracker:
+            raise CreateIssueValidationError('유효한 유형을 찾지 못했습니다.')
+
+        statuses = get_status_options(redmine)
+        priorities = get_priority_options(redmine)
+        selected_status = resolve_selected_option(statuses, payload['status_id'], DEFAULT_STATUS_NAME, '상태')
+        selected_priority = resolve_selected_option(priorities, payload['priority_id'], DEFAULT_PRIORITY_NAME, '우선순위')
+        assignee = get_assignee_user(redmine, payload['assignee_key'])
+
+        scoped_issues = list(redmine.issue.filter(
+            project_id=payload['project_id'],
+            tracker_id=payload['tracker_id'],
+            status_id='*',
+            sort='created_on:asc',
+        ))
+        parent_issue_options = build_parent_issue_options(scoped_issues)
+        parent_issue_id = resolve_parent_issue_id(payload['parent_issue_id'], parent_issue_options)
+        uploads = upload_issue_files(redmine, payload['files'])
+
+        issue = redmine.issue.create(
+            project_id=payload['project_id'],
+            tracker_id=payload['tracker_id'],
+            subject=payload['subject'],
+            description=payload['description'],
+            status_id=selected_status['id'],
+            priority_id=selected_priority['id'],
+            assigned_to_id=assignee['id'],
+            parent_issue_id=parent_issue_id,
+            uploads=uploads,
+        )
+
+        return jsonify(format_created_issue_response(issue)), 201
+    except CreateIssueValidationError as e:
+        return jsonify({'error': str(e)}), 400
+    except ConfigError as e:
+        return jsonify({'error': str(e)}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 404
+
+
 def build_project_hierarchy(project_name=None, parent_project_name=None):
     names = [name for name in [parent_project_name, project_name] if name]
     if len(names) == 2 and names[0] == names[1]:
@@ -291,6 +429,212 @@ def format_issue_summary_from_json(issue):
         'updated_on': issue.get('updated_on'),
         **format_project_hierarchy_from_json(issue)
     }
+
+
+def get_project_options(redmine):
+    projects = [format_project_option(project) for project in redmine.project.all()]
+    return sorted(projects, key=lambda item: (item['name'] or '').lower())
+
+
+def get_tracker_options(redmine):
+    trackers = [format_tracker_option(tracker) for tracker in redmine.tracker.all()]
+    return sorted(trackers, key=lambda item: (item['name'] or '').lower())
+
+
+def get_tracker_by_id(redmine, tracker_id):
+    tracker_id = str(tracker_id)
+    return next((tracker for tracker in redmine.tracker.all() if str(getattr(tracker, 'id', '')) == tracker_id), None)
+
+
+def get_status_options(redmine):
+    statuses = [format_named_option(status) for status in redmine.issue_status.all()]
+    return sorted(statuses, key=lambda item: (item['name'] or '').lower())
+
+
+def get_priority_options(redmine):
+    priorities = [format_named_option(priority) for priority in redmine.enumeration.filter(resource='issue_priorities')]
+    return sorted(priorities, key=lambda item: (item['name'] or '').lower())
+
+
+def get_assignee_options():
+    return [
+        {
+            'key': key,
+            'label': value['label'],
+            'login': value['login'],
+        }
+        for key, value in ASSIGNEE_MAP.items()
+    ]
+
+
+def format_project_option(project):
+    return {
+        'id': getattr(project, 'id', None),
+        'name': getattr(project, 'name', None),
+        'identifier': getattr(project, 'identifier', None),
+    }
+
+
+def format_tracker_option(tracker):
+    return {
+        'id': getattr(tracker, 'id', None),
+        'name': getattr(tracker, 'name', None),
+    }
+
+
+def format_named_option(resource):
+    return {
+        'id': getattr(resource, 'id', None),
+        'name': getattr(resource, 'name', None),
+    }
+
+
+def find_named_option(options, target_name):
+    return next((option for option in options if option.get('name') == target_name), None)
+
+
+def find_option_by_id(options, target_id):
+    target_id = str(target_id)
+    return next((option for option in options if str(option.get('id')) == target_id), None)
+
+
+def get_project_by_id(redmine, project_id):
+    project_id = str(project_id)
+    return next((project for project in redmine.project.all() if str(getattr(project, 'id', '')) == project_id), None)
+
+
+def parse_create_issue_payload():
+    payload = {
+        'project_id': clean_required_field(request.form.get('project_id'), 'project_id'),
+        'tracker_id': clean_required_field(request.form.get('tracker_id'), 'tracker_id'),
+        'subject': clean_required_field(request.form.get('subject'), 'subject'),
+        'description': clean_optional_field(request.form.get('description')) or '',
+        'status_id': clean_optional_field(request.form.get('status_id')),
+        'priority_id': clean_optional_field(request.form.get('priority_id')),
+        'parent_issue_id': clean_optional_field(request.form.get('parent_issue_id')),
+        'assignee_key': clean_required_field(request.form.get('assignee_key'), 'assignee_key'),
+        'files': [file for file in request.files.getlist('files') if file and file.filename],
+    }
+    return payload
+
+
+def clean_required_field(value, field_name):
+    cleaned = (value or '').strip()
+    if not cleaned:
+        raise CreateIssueValidationError(f'{field_name}는 필수입니다.')
+    return cleaned
+
+
+def clean_optional_field(value):
+    cleaned = (value or '').strip()
+    return cleaned or None
+
+
+def resolve_selected_option(options, selected_id, default_name, field_label):
+    if selected_id:
+        option = find_option_by_id(options, selected_id)
+        if not option:
+            raise CreateIssueValidationError(f'유효한 {field_label}을 찾지 못했습니다.')
+        return option
+
+    default_option = find_named_option(options, default_name)
+    if not default_option:
+        raise CreateIssueValidationError(f'기본 {field_label}을 찾지 못했습니다.')
+    return default_option
+
+
+def get_assignee_user(redmine, assignee_key):
+    assignee = ASSIGNEE_MAP.get(assignee_key)
+    if not assignee:
+        raise CreateIssueValidationError('유효한 담당자를 선택해주세요.')
+
+    candidates = redmine.user.filter(name=assignee['login'])
+    for user in candidates:
+        user_login = getattr(user, 'login', '')
+        user_name = getattr(user, 'name', '')
+        if user_login == assignee['login'] or user_name == assignee['label']:
+            return {
+                'id': getattr(user, 'id', None),
+                'login': user_login,
+                'label': assignee['label'],
+            }
+
+    raise CreateIssueValidationError(f"담당자 계정({assignee['login']})을 찾지 못했습니다.")
+
+
+def resolve_parent_issue_id(selected_parent_issue_id, parent_issue_options):
+    if selected_parent_issue_id:
+        selected_option = find_option_by_id(parent_issue_options, selected_parent_issue_id)
+        if not selected_option:
+            raise CreateIssueValidationError('유효한 상위일감을 찾지 못했습니다.')
+        return selected_option['id']
+
+    return parent_issue_options[0]['id'] if parent_issue_options else None
+
+
+def upload_issue_files(redmine, files):
+    uploads = []
+    for file in files:
+        upload = redmine.upload(file.stream, filename=file.filename)
+        uploads.append({
+            'token': upload['token'],
+            'filename': file.filename,
+            'content_type': file.mimetype,
+        })
+    return uploads
+
+
+def format_created_issue_response(issue):
+    return {
+        'id': issue.id,
+        'subject': issue.subject,
+        'redmine_url_internal': f"{REDMINE_URL_INTERNAL}/issues/{issue.id}",
+        'redmine_url_external': f"{REDMINE_URL_EXTERNAL}/issues/{issue.id}",
+    }
+
+
+def resolve_subject_default(issues, tracker_name):
+    if not issues:
+        return tracker_name, 'tracker_name'
+
+    latest_match = None
+    for issue in issues:
+        subject = (getattr(issue, 'subject', '') or '').strip()
+        match = TITLE_PREFIX_PATTERN.match(subject)
+        if not match:
+            continue
+
+        latest_match = {
+            'prefix': match.group(1),
+            'number': int(match.group(2)),
+            'width': len(match.group(2)),
+        }
+
+    if not latest_match:
+        return tracker_name, 'tracker_name'
+
+    next_number = latest_match['number'] + 1
+    padded_number = str(next_number).zfill(latest_match['width'])
+    return f"{latest_match['prefix']}_{padded_number} ", 'increment'
+
+
+def build_parent_issue_options(issues):
+    root_issues = []
+    for issue in issues:
+        try:
+            parent = getattr(issue, 'parent', None)
+        except Exception:
+            parent = None
+
+        if parent:
+            continue
+
+        root_issues.append({
+            'id': getattr(issue, 'id', None),
+            'subject': getattr(issue, 'subject', None),
+        })
+
+    return root_issues
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))

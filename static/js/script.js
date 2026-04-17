@@ -1,7 +1,21 @@
 const appConfig = getAppConfig();
 const networkInputs = document.querySelectorAll('input[name="network"]');
+const createState = {
+    selectedFiles: [],
+    optionsDefaults: {
+        statusId: '',
+        priorityId: ''
+    },
+    latestOptionsKey: '',
+    lastAppliedSubject: '',
+    subjectDirty: false,
+    lastAppliedDescription: '',
+    descriptionDirty: false,
+    latestPrefillKey: ''
+};
 
 initRedmineEntrySplitButton();
+initCreatePanel();
 
 document.getElementById('search-btn').addEventListener('click', searchIssue);
 document.getElementById('issue-query').addEventListener('keypress', (e) => {
@@ -10,6 +24,12 @@ document.getElementById('issue-query').addEventListener('keypress', (e) => {
 
 networkInputs.forEach((input) => {
     input.addEventListener('change', () => {
+        if (isCreatePanelVisible()) {
+            resetCreateDraft({ preserveFeedback: false });
+            renderCreateFeedback('info', '네트워크가 변경되어 작성 초안을 새로 불러옵니다.');
+            void loadCreateOptions({ preserveSelections: false, preserveFeedback: true });
+        }
+
         if (shouldRefreshRecentIssues()) {
             loadRecentIssues();
         }
@@ -89,6 +109,682 @@ function shouldRefreshRecentIssues() {
     const issueDetailVisible = !document.getElementById('issue-detail').classList.contains('hidden');
     const hasSearchQuery = document.getElementById('issue-query').value.trim().length > 0;
     return !issueDetailVisible && !hasSearchQuery;
+}
+
+function initCreatePanel() {
+    const elements = getCreateElements();
+
+    if (!elements.panel || !elements.openButton || !elements.form) {
+        return;
+    }
+
+    elements.openButton.addEventListener('click', () => {
+        void openCreatePanel();
+    });
+
+    elements.closeButton?.addEventListener('click', closeCreatePanel);
+
+    elements.form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        void submitCreateForm();
+    });
+
+    elements.project?.addEventListener('change', () => {
+        void handleCreateScopeChange();
+    });
+
+    elements.tracker?.addEventListener('change', () => {
+        void handleCreateScopeChange();
+    });
+
+    elements.subject?.addEventListener('input', () => {
+        createState.subjectDirty = elements.subject.value !== createState.lastAppliedSubject;
+    });
+
+    elements.description?.addEventListener('input', () => {
+        createState.descriptionDirty = elements.description.value !== createState.lastAppliedDescription;
+    });
+
+    elements.files?.addEventListener('change', handleCreateFileSelection);
+    elements.fileList?.addEventListener('click', handleCreateFileListClick);
+}
+
+function getCreateElements() {
+    return {
+        panel: document.getElementById('create-panel'),
+        openButton: document.getElementById('open-create-btn'),
+        closeButton: document.getElementById('close-create-btn'),
+        feedback: document.getElementById('create-feedback'),
+        form: document.getElementById('create-form'),
+        project: document.getElementById('create-project'),
+        tracker: document.getElementById('create-tracker'),
+        assignee: document.getElementById('create-assignee'),
+        status: document.getElementById('create-status'),
+        priority: document.getElementById('create-priority'),
+        parent: document.getElementById('create-parent'),
+        subject: document.getElementById('create-subject'),
+        description: document.getElementById('create-description'),
+        files: document.getElementById('create-files'),
+        fileList: document.getElementById('create-file-list'),
+        submitButton: document.getElementById('create-submit-btn')
+    };
+}
+
+function isCreatePanelVisible() {
+    const { panel } = getCreateElements();
+    return Boolean(panel && !panel.classList.contains('hidden'));
+}
+
+async function openCreatePanel() {
+    const elements = getCreateElements();
+
+    if (!elements.panel) {
+        return;
+    }
+
+    elements.panel.classList.remove('hidden');
+    elements.openButton?.setAttribute('aria-expanded', 'true');
+
+    await loadCreateOptions({ preserveSelections: true });
+    elements.panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function closeCreatePanel() {
+    const elements = getCreateElements();
+
+    if (!elements.panel) {
+        return;
+    }
+
+    elements.panel.classList.add('hidden');
+    elements.openButton?.setAttribute('aria-expanded', 'false');
+    resetCreateDraft();
+}
+
+async function loadCreateOptions({ preserveSelections = true, preserveFeedback = false } = {}) {
+    const elements = getCreateElements();
+
+    if (!elements.form) {
+        return;
+    }
+
+    const currentValues = preserveSelections ? {
+        projectId: elements.project?.value || '',
+        trackerId: elements.tracker?.value || '',
+        assigneeKey: elements.assignee?.value || '',
+        statusId: elements.status?.value || '',
+        priorityId: elements.priority?.value || ''
+    } : {
+        projectId: '',
+        trackerId: '',
+        assigneeKey: '',
+        statusId: '',
+        priorityId: ''
+    };
+    const requestKey = `${getSelectedNetwork()}:${Date.now()}`;
+    createState.latestOptionsKey = requestKey;
+
+    setCreateFormBusy(true, '옵션 불러오는 중...');
+    if (!preserveFeedback) {
+        renderCreateFeedback('info', '작성 옵션을 불러오는 중입니다.');
+    }
+
+    try {
+        const network = getSelectedNetwork();
+        const response = await fetch(`/api/create/options?network=${network}`);
+        const result = await response.json();
+
+        if (createState.latestOptionsKey !== requestKey) {
+            return;
+        }
+
+        if (!response.ok || result.error) {
+            throw new Error(result.error || '작성 옵션을 불러오지 못했습니다.');
+        }
+
+        createState.optionsDefaults = {
+            statusId: result.defaults?.status?.id ? String(result.defaults.status.id) : '',
+            priorityId: result.defaults?.priority?.id ? String(result.defaults.priority.id) : ''
+        };
+
+        populateSelect(elements.project, result.projects || [], {
+            placeholder: '프로젝트 선택',
+            selectedValue: currentValues.projectId,
+            labelBuilder: (item) => {
+                if (!item?.name) {
+                    return '';
+                }
+
+                return item.identifier ? `${item.name} (${item.identifier})` : item.name;
+            }
+        });
+
+        populateSelect(elements.tracker, result.trackers || [], {
+            placeholder: '유형 선택',
+            selectedValue: currentValues.trackerId
+        });
+
+        populateSelect(elements.assignee, result.assignees || [], {
+            placeholder: '담당자 선택',
+            valueKey: 'key',
+            selectedValue: currentValues.assigneeKey,
+            labelBuilder: (item) => item?.label || ''
+        });
+
+        populateSelect(elements.status, result.statuses || [], {
+            placeholder: '상태 선택',
+            selectedValue: currentValues.statusId || createState.optionsDefaults.statusId
+        });
+
+        populateSelect(elements.priority, result.priorities || [], {
+            placeholder: '우선순위 선택',
+            selectedValue: currentValues.priorityId || createState.optionsDefaults.priorityId
+        });
+
+        resetCreateParentOptions('프로젝트와 유형을 먼저 선택하세요');
+
+        if (elements.project?.value && elements.tracker?.value) {
+            await loadCreatePrefill({ preserveFeedback: true });
+            if (elements.feedback?.classList.contains('create-feedback--info')) {
+                clearCreateFeedback();
+            }
+        } else {
+            resetCreatePrefillFields();
+            clearCreateFeedback();
+        }
+    } catch (err) {
+        if (createState.latestOptionsKey !== requestKey) {
+            return;
+        }
+
+        renderCreateFeedback('error', `작성 옵션을 불러오지 못했습니다: ${escapeHTML(err.message)}`);
+    } finally {
+        if (createState.latestOptionsKey === requestKey) {
+            setCreateFormBusy(false);
+        }
+    }
+}
+
+async function handleCreateScopeChange() {
+    clearCreateFeedback();
+
+    const elements = getCreateElements();
+    if (!elements.project?.value || !elements.tracker?.value) {
+        resetCreateParentOptions('프로젝트와 유형을 먼저 선택하세요');
+        resetCreatePrefillFields();
+        return;
+    }
+
+    await loadCreatePrefill();
+}
+
+async function loadCreatePrefill({ preserveFeedback = false } = {}) {
+    const elements = getCreateElements();
+
+    if (!elements.project?.value || !elements.tracker?.value) {
+        return;
+    }
+
+    const requestKey = `${getSelectedNetwork()}:${elements.project.value}:${elements.tracker.value}:${Date.now()}`;
+    createState.latestPrefillKey = requestKey;
+
+    setCreateFormBusy(true, '기본값 불러오는 중...');
+    if (!preserveFeedback) {
+        renderCreateFeedback('info', '입력 기본값을 불러오는 중입니다.');
+    }
+
+    try {
+        const network = getSelectedNetwork();
+        const response = await fetch(
+            `/api/create/prefill?network=${network}&project_id=${encodeURIComponent(elements.project.value)}&tracker_id=${encodeURIComponent(elements.tracker.value)}`
+        );
+        const result = await response.json();
+
+        if (createState.latestPrefillKey !== requestKey) {
+            return;
+        }
+
+        if (!response.ok || result.error) {
+            throw new Error(result.error || '기본값을 불러오지 못했습니다.');
+        }
+
+        applyCreatePrefill(result);
+
+        if (!preserveFeedback) {
+            clearCreateFeedback();
+        }
+    } catch (err) {
+        if (createState.latestPrefillKey !== requestKey) {
+            return;
+        }
+
+        resetCreateParentOptions('상위 일감을 불러오지 못했습니다');
+        renderCreateFeedback('error', `기본값을 불러오지 못했습니다: ${escapeHTML(err.message)}`);
+    } finally {
+        if (createState.latestPrefillKey === requestKey) {
+            setCreateFormBusy(false);
+        }
+    }
+}
+
+function applyCreatePrefill(prefill) {
+    const elements = getCreateElements();
+    const parentOptions = prefill.parent_issue_options || [];
+    const defaultParentId = prefill.parent_issue_default_id ? String(prefill.parent_issue_default_id) : '';
+
+    if (parentOptions.length > 0) {
+        populateSelect(elements.parent, parentOptions, {
+            selectedValue: defaultParentId,
+            labelBuilder: (item) => `#${item.id} ${item.subject || ''}`
+        });
+        elements.parent.disabled = false;
+    } else {
+        resetCreateParentOptions('선택 가능한 상위 일감이 없습니다');
+    }
+
+    if (prefill.default_status?.id && hasSelectValue(elements.status, prefill.default_status.id)) {
+        elements.status.value = String(prefill.default_status.id);
+    } else if (createState.optionsDefaults.statusId && hasSelectValue(elements.status, createState.optionsDefaults.statusId)) {
+        elements.status.value = createState.optionsDefaults.statusId;
+    }
+
+    if (prefill.default_priority?.id && hasSelectValue(elements.priority, prefill.default_priority.id)) {
+        elements.priority.value = String(prefill.default_priority.id);
+    } else if (createState.optionsDefaults.priorityId && hasSelectValue(elements.priority, createState.optionsDefaults.priorityId)) {
+        elements.priority.value = createState.optionsDefaults.priorityId;
+    }
+
+    applySubjectPrefill(prefill.subject_default || '');
+    applyDescriptionPrefill(prefill.default_description || '');
+}
+
+function resetCreatePrefillFields() {
+    const elements = getCreateElements();
+
+    if ((!createState.subjectDirty || elements.subject?.value === createState.lastAppliedSubject) && elements.subject) {
+        elements.subject.value = '';
+        createState.lastAppliedSubject = '';
+        createState.subjectDirty = false;
+    }
+
+    if ((!createState.descriptionDirty || elements.description?.value === createState.lastAppliedDescription) && elements.description) {
+        elements.description.value = '';
+        createState.lastAppliedDescription = '';
+        createState.descriptionDirty = false;
+    }
+
+    if (createState.optionsDefaults.statusId && hasSelectValue(elements.status, createState.optionsDefaults.statusId)) {
+        elements.status.value = createState.optionsDefaults.statusId;
+    }
+
+    if (createState.optionsDefaults.priorityId && hasSelectValue(elements.priority, createState.optionsDefaults.priorityId)) {
+        elements.priority.value = createState.optionsDefaults.priorityId;
+    }
+}
+
+function applySubjectPrefill(nextValue) {
+    const elements = getCreateElements();
+
+    if (!elements.subject) {
+        return;
+    }
+
+    const canApply = !createState.subjectDirty || elements.subject.value === createState.lastAppliedSubject;
+    if (!canApply) {
+        return;
+    }
+
+    elements.subject.value = nextValue;
+    createState.lastAppliedSubject = nextValue;
+    createState.subjectDirty = false;
+}
+
+function applyDescriptionPrefill(nextValue) {
+    const elements = getCreateElements();
+
+    if (!elements.description) {
+        return;
+    }
+
+    const canApply = !createState.descriptionDirty || elements.description.value === createState.lastAppliedDescription;
+    if (!canApply) {
+        return;
+    }
+
+    elements.description.value = nextValue;
+    createState.lastAppliedDescription = nextValue;
+    createState.descriptionDirty = false;
+}
+
+async function submitCreateForm() {
+    const elements = getCreateElements();
+    const formData = new FormData();
+
+    formData.append('project_id', elements.project?.value || '');
+    formData.append('tracker_id', elements.tracker?.value || '');
+    formData.append('subject', elements.subject?.value || '');
+    formData.append('description', elements.description?.value || '');
+    formData.append('status_id', elements.status?.value || '');
+    formData.append('priority_id', elements.priority?.value || '');
+    formData.append('parent_issue_id', elements.parent?.value || '');
+    formData.append('assignee_key', elements.assignee?.value || '');
+
+    createState.selectedFiles.forEach((file) => {
+        formData.append('files', file, file.name);
+    });
+
+    setCreateFormBusy(true, '등록 중...');
+    renderCreateFeedback('info', '이슈를 등록하는 중입니다.');
+
+    try {
+        const network = getSelectedNetwork();
+        const response = await fetch(`/api/issues?network=${network}`, {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+
+        if (!response.ok || result.error) {
+            throw new Error(result.error || '이슈를 생성하지 못했습니다.');
+        }
+
+        const currentScope = {
+            projectId: elements.project?.value || '',
+            trackerId: elements.tracker?.value || ''
+        };
+
+        resetCreateDraft({
+            preserveFeedback: true,
+            preserveScope: true,
+            preserveSelections: true,
+            projectId: currentScope.projectId,
+            trackerId: currentScope.trackerId
+        });
+        await loadCreateOptions({ preserveSelections: true, preserveFeedback: true });
+        clearCreateFiles();
+        renderCreateFeedback('success', buildCreateSuccessMarkup(result));
+        document.getElementById('issue-query').value = '';
+        loadRecentIssues();
+    } catch (err) {
+        renderCreateFeedback('error', `이슈를 생성하지 못했습니다: ${escapeHTML(err.message)}`);
+    } finally {
+        setCreateFormBusy(false);
+    }
+}
+
+function setCreateFormBusy(isBusy, submitLabel = '이슈 등록') {
+    const elements = getCreateElements();
+
+    if (!elements.form) {
+        return;
+    }
+
+    elements.form.querySelectorAll('input, select, textarea, button').forEach((field) => {
+        field.disabled = isBusy;
+    });
+
+    if (elements.submitButton) {
+        elements.submitButton.textContent = isBusy ? submitLabel : '이슈 등록';
+    }
+}
+
+function populateSelect(select, items, options = {}) {
+    if (!select) {
+        return;
+    }
+
+    const {
+        placeholder = null,
+        valueKey = 'id',
+        labelKey = 'name',
+        labelBuilder = null,
+        selectedValue = ''
+    } = options;
+
+    select.innerHTML = '';
+
+    if (placeholder !== null) {
+        const placeholderOption = document.createElement('option');
+        placeholderOption.value = '';
+        placeholderOption.textContent = placeholder;
+        select.appendChild(placeholderOption);
+    }
+
+    items.forEach((item) => {
+        const option = document.createElement('option');
+        option.value = String(item?.[valueKey] ?? '');
+        option.textContent = labelBuilder ? labelBuilder(item) : String(item?.[labelKey] ?? '');
+        select.appendChild(option);
+    });
+
+    const normalizedSelectedValue = selectedValue ? String(selectedValue) : '';
+    if (normalizedSelectedValue && hasSelectValue(select, normalizedSelectedValue)) {
+        select.value = normalizedSelectedValue;
+    } else if (placeholder !== null) {
+        select.value = '';
+    } else if (select.options.length > 0) {
+        select.selectedIndex = 0;
+    }
+
+    select.disabled = items.length === 0;
+}
+
+function hasSelectValue(select, value) {
+    if (!select) {
+        return false;
+    }
+
+    const normalizedValue = String(value);
+    return Array.from(select.options).some((option) => option.value === normalizedValue);
+}
+
+function resetCreateParentOptions(message) {
+    const { parent } = getCreateElements();
+    populateSelect(parent, [], { placeholder: message });
+}
+
+function renderCreateFeedback(type, message) {
+    const { feedback } = getCreateElements();
+
+    if (!feedback) {
+        return;
+    }
+
+    feedback.className = `create-feedback create-feedback--${type}`;
+    feedback.innerHTML = message;
+}
+
+function clearCreateFeedback() {
+    const { feedback } = getCreateElements();
+
+    if (!feedback) {
+        return;
+    }
+
+    feedback.className = 'create-feedback hidden';
+    feedback.innerHTML = '';
+}
+
+function buildCreateSuccessMarkup(result) {
+    const issueId = escapeHTML(String(result.id || ''));
+    const subject = escapeHTML(result.subject || '');
+    const internalUrl = escapeHTML(result.redmine_url_internal || '#');
+    const externalUrl = escapeHTML(result.redmine_url_external || '#');
+
+    return `
+        <div class="create-feedback-title">#${issueId} ${subject} 등록 완료</div>
+        <div class="create-feedback-links">
+            <a href="${internalUrl}" target="_blank" rel="noopener noreferrer" class="create-feedback-link">내부망에서 열기</a>
+            <a href="${externalUrl}" target="_blank" rel="noopener noreferrer" class="create-feedback-link">외부망에서 열기</a>
+        </div>
+    `;
+}
+
+function handleCreateFileSelection(event) {
+    const incomingFiles = Array.from(event.target.files || []);
+    if (incomingFiles.length === 0) {
+        return;
+    }
+
+    incomingFiles.forEach((file) => {
+        const alreadySelected = createState.selectedFiles.some((selectedFile) => {
+            return getFileSignature(selectedFile) === getFileSignature(file);
+        });
+
+        if (!alreadySelected) {
+            createState.selectedFiles.push(file);
+        }
+    });
+
+    syncCreateFilesInput();
+    renderCreateFileList();
+}
+
+function handleCreateFileListClick(event) {
+    const removeButton = event.target.closest('[data-remove-file-index]');
+    if (!removeButton) {
+        return;
+    }
+
+    const index = Number(removeButton.dataset.removeFileIndex);
+    if (Number.isNaN(index)) {
+        return;
+    }
+
+    createState.selectedFiles.splice(index, 1);
+    syncCreateFilesInput();
+    renderCreateFileList();
+}
+
+function syncCreateFilesInput() {
+    const { files } = getCreateElements();
+
+    if (!files || typeof DataTransfer === 'undefined') {
+        return;
+    }
+
+    const transfer = new DataTransfer();
+    createState.selectedFiles.forEach((file) => {
+        transfer.items.add(file);
+    });
+    files.files = transfer.files;
+}
+
+function renderCreateFileList() {
+    const { fileList } = getCreateElements();
+
+    if (!fileList) {
+        return;
+    }
+
+    if (createState.selectedFiles.length === 0) {
+        fileList.className = 'create-file-list hidden';
+        fileList.innerHTML = '';
+        return;
+    }
+
+    fileList.className = 'create-file-list';
+    fileList.innerHTML = createState.selectedFiles.map((file, index) => `
+        <div class="create-file-item">
+            <div class="create-file-copy">
+                <span class="create-file-name">${escapeHTML(file.name)}</span>
+                <span class="create-file-size">${formatFileSize(file.size)}</span>
+            </div>
+            <button type="button" class="create-file-remove" data-remove-file-index="${index}">제거</button>
+        </div>
+    `).join('');
+}
+
+function clearCreateFiles() {
+    createState.selectedFiles = [];
+    syncCreateFilesInput();
+    renderCreateFileList();
+}
+
+function resetCreateDraft(options = {}) {
+    const {
+        preserveFeedback = false,
+        preserveScope = false,
+        preserveSelections = false,
+        projectId = '',
+        trackerId = ''
+    } = options;
+    const elements = getCreateElements();
+
+    createState.selectedFiles = [];
+    createState.latestOptionsKey = '';
+    createState.latestPrefillKey = '';
+    createState.lastAppliedSubject = '';
+    createState.subjectDirty = false;
+    createState.lastAppliedDescription = '';
+    createState.descriptionDirty = false;
+
+    if (elements.form) {
+        elements.form.reset();
+    }
+
+    if (elements.subject) {
+        elements.subject.value = '';
+    }
+
+    if (elements.description) {
+        elements.description.value = '';
+    }
+
+    clearCreateFiles();
+    resetCreateParentOptions('프로젝트와 유형을 먼저 선택하세요');
+
+    if (!preserveScope) {
+        if (elements.project) {
+            elements.project.value = '';
+        }
+
+        if (elements.tracker) {
+            elements.tracker.value = '';
+        }
+    } else {
+        if (elements.project && hasSelectValue(elements.project, projectId)) {
+            elements.project.value = String(projectId);
+        }
+
+        if (elements.tracker && hasSelectValue(elements.tracker, trackerId)) {
+            elements.tracker.value = String(trackerId);
+        }
+    }
+
+    if (!preserveSelections) {
+        if (elements.assignee) {
+            elements.assignee.value = '';
+        }
+
+        if (elements.status && hasSelectValue(elements.status, createState.optionsDefaults.statusId)) {
+            elements.status.value = createState.optionsDefaults.statusId;
+        }
+
+        if (elements.priority && hasSelectValue(elements.priority, createState.optionsDefaults.priorityId)) {
+            elements.priority.value = createState.optionsDefaults.priorityId;
+        }
+    }
+
+    if (!preserveFeedback) {
+        clearCreateFeedback();
+    }
+}
+
+function getFileSignature(file) {
+    return [file.name, file.size, file.lastModified].join(':');
+}
+
+function formatFileSize(size) {
+    if (!Number.isFinite(size) || size < 1024) {
+        return `${size || 0} B`;
+    }
+
+    if (size < 1024 * 1024) {
+        return `${(size / 1024).toFixed(1)} KB`;
+    }
+
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 async function searchIssue() {

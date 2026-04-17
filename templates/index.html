@@ -47,6 +47,15 @@
                 <button type="button" id="search-btn">검색</button>
             </div>
             <div class="search-support-row">
+                <button
+                    type="button"
+                    id="open-create-btn"
+                    class="create-trigger-btn"
+                    aria-controls="create-panel"
+                    aria-expanded="false"
+                >
+                    새 이슈 등록
+                </button>
                 <div class="redmine-entry-split" data-redmine-entry-split>
                     <a
                         href="{{ redmine_entry_url }}"
@@ -83,6 +92,85 @@
                         <a href="{{ redmine_url_external }}" target="_blank" rel="noopener noreferrer" class="redmine-entry-menu-item" role="menuitem">외부망으로 열기</a>
                     </div>
                 </div>
+            </div>
+        </section>
+
+        <section id="create-panel" class="create-panel hidden" aria-live="polite">
+            <div class="card create-card">
+                <div class="create-panel-header">
+                    <div>
+                        <span class="create-kicker">Issue create</span>
+                        <h3>새 이슈 등록</h3>
+                        <p>프로젝트와 유형을 선택하면 서버 기본값을 불러옵니다.</p>
+                    </div>
+                    <button type="button" id="close-create-btn" class="secondary-btn">닫기</button>
+                </div>
+
+                <div id="create-feedback" class="create-feedback hidden" role="status" aria-live="polite"></div>
+
+                <form id="create-form" class="create-form" novalidate>
+                    <div class="create-form-grid">
+                        <label class="create-field">
+                            <span>프로젝트</span>
+                            <select id="create-project" name="project_id" required>
+                                <option value="">프로젝트 선택</option>
+                            </select>
+                        </label>
+                        <label class="create-field">
+                            <span>유형</span>
+                            <select id="create-tracker" name="tracker_id" required>
+                                <option value="">유형 선택</option>
+                            </select>
+                        </label>
+                        <label class="create-field">
+                            <span>담당자</span>
+                            <select id="create-assignee" name="assignee_key" required>
+                                <option value="">담당자 선택</option>
+                            </select>
+                        </label>
+                        <label class="create-field">
+                            <span>상태</span>
+                            <select id="create-status" name="status_id">
+                                <option value="">상태 선택</option>
+                            </select>
+                        </label>
+                        <label class="create-field">
+                            <span>우선순위</span>
+                            <select id="create-priority" name="priority_id">
+                                <option value="">우선순위 선택</option>
+                            </select>
+                        </label>
+                        <label class="create-field">
+                            <span>상위 일감</span>
+                            <select id="create-parent" name="parent_issue_id">
+                                <option value="">프로젝트와 유형을 먼저 선택하세요</option>
+                            </select>
+                        </label>
+                    </div>
+
+                    <label class="create-field">
+                        <span>제목</span>
+                        <input type="text" id="create-subject" name="subject" placeholder="제목을 입력하세요" required>
+                    </label>
+
+                    <label class="create-field">
+                        <span>설명</span>
+                        <textarea id="create-description" name="description" rows="6" placeholder="설명을 입력하세요"></textarea>
+                    </label>
+
+                    <div class="create-field create-field--files">
+                        <div class="create-file-header">
+                            <span>첨부 파일</span>
+                            <span class="create-file-hint">여러 파일 선택 가능</span>
+                        </div>
+                        <input type="file" id="create-files" name="files" multiple>
+                        <div id="create-file-list" class="create-file-list hidden"></div>
+                    </div>
+
+                    <div class="create-actions">
+                        <button type="submit" id="create-submit-btn">이슈 등록</button>
+                    </div>
+                </form>
             </div>
         </section>
 
