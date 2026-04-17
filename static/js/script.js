@@ -146,14 +146,20 @@ function initCreatePanel() {
         createState.descriptionDirty = elements.description.value !== createState.lastAppliedDescription;
     });
 
+    elements.status?.addEventListener('change', renderCreateAdvancedSummary);
+    elements.priority?.addEventListener('change', renderCreateAdvancedSummary);
+    elements.parent?.addEventListener('change', renderCreateAdvancedSummary);
     elements.files?.addEventListener('change', handleCreateFileSelection);
     elements.fileList?.addEventListener('click', handleCreateFileListClick);
+
+    renderCreateAdvancedSummary();
 }
 
 function getCreateElements() {
     return {
         panel: document.getElementById('create-panel'),
         advanced: document.getElementById('create-advanced'),
+        advancedState: document.getElementById('create-advanced-state'),
         openButton: document.getElementById('open-create-btn'),
         closeButton: document.getElementById('close-create-btn'),
         feedback: document.getElementById('create-feedback'),
@@ -187,6 +193,7 @@ async function openCreatePanel() {
     collapseCreateAdvancedSection();
     elements.panel.classList.remove('hidden');
     elements.openButton?.setAttribute('aria-expanded', 'true');
+    renderCreateAdvancedSummary();
 
     await loadCreateOptions({ preserveSelections: true });
     elements.panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -289,6 +296,7 @@ async function loadCreateOptions({ preserveSelections = true, preserveFeedback =
         });
 
         resetCreateParentOptions('프로젝트와 유형을 먼저 선택하세요');
+        renderCreateAdvancedSummary();
 
         if (elements.project?.value && elements.tracker?.value) {
             await loadCreatePrefill({ preserveFeedback: true });
@@ -304,6 +312,7 @@ async function loadCreateOptions({ preserveSelections = true, preserveFeedback =
             return;
         }
 
+        revealCreateAdvancedSection(err.message, { force: true });
         renderCreateFeedback('error', `작성 옵션을 불러오지 못했습니다: ${escapeHTML(err.message)}`);
     } finally {
         if (createState.latestOptionsKey === requestKey) {
@@ -366,6 +375,7 @@ async function loadCreatePrefill({ preserveFeedback = false } = {}) {
         }
 
         resetCreateParentOptions('상위 일감을 불러오지 못했습니다');
+        revealCreateAdvancedSection(err.message, { force: true });
         renderCreateFeedback('error', `기본값을 불러오지 못했습니다: ${escapeHTML(err.message)}`);
     } finally {
         if (createState.latestPrefillKey === requestKey) {
@@ -403,6 +413,7 @@ function applyCreatePrefill(prefill) {
 
     applySubjectPrefill(prefill.subject_default || '');
     applyDescriptionPrefill(prefill.default_description || '');
+    renderCreateAdvancedSummary();
 }
 
 function resetCreatePrefillFields() {
@@ -431,6 +442,8 @@ function resetCreatePrefillFields() {
     if (createState.optionsDefaults.trackerId && hasSelectValue(elements.tracker, createState.optionsDefaults.trackerId)) {
         elements.tracker.value = createState.optionsDefaults.trackerId;
     }
+
+    renderCreateAdvancedSummary();
 }
 
 function applySubjectPrefill(nextValue) {
@@ -517,9 +530,26 @@ async function submitCreateForm() {
         document.getElementById('issue-query').value = '';
         loadRecentIssues();
     } catch (err) {
+        revealCreateAdvancedSection(err.message);
         renderCreateFeedback('error', `이슈를 생성하지 못했습니다: ${escapeHTML(err.message)}`);
     } finally {
         setCreateFormBusy(false);
+    }
+}
+
+function revealCreateAdvancedSection(message, options = {}) {
+    const { force = false } = options;
+
+    if (force || isAdvancedRelatedMessage(message) || hasActiveAdvancedState()) {
+        openCreateAdvancedSection();
+    }
+}
+
+function openCreateAdvancedSection() {
+    const { advanced } = getCreateElements();
+
+    if (advanced) {
+        advanced.open = true;
     }
 }
 
@@ -592,6 +622,7 @@ function hasSelectValue(select, value) {
 function resetCreateParentOptions(message) {
     const { parent } = getCreateElements();
     populateSelect(parent, [], { placeholder: message });
+    renderCreateAdvancedSummary();
 }
 
 function renderCreateFeedback(type, message) {
@@ -691,6 +722,7 @@ function renderCreateFileList() {
     if (createState.selectedFiles.length === 0) {
         fileList.className = 'create-file-list hidden';
         fileList.innerHTML = '';
+        renderCreateAdvancedSummary();
         return;
     }
 
@@ -704,6 +736,7 @@ function renderCreateFileList() {
             <button type="button" class="create-file-remove" data-remove-file-index="${index}">제거</button>
         </div>
     `).join('');
+    renderCreateAdvancedSummary();
 }
 
 function clearCreateFiles() {
@@ -790,6 +823,64 @@ function resetCreateDraft(options = {}) {
     if (!preserveFeedback) {
         clearCreateFeedback();
     }
+
+    renderCreateAdvancedSummary();
+}
+
+function renderCreateAdvancedSummary() {
+    const { advancedState, status, priority, parent } = getCreateElements();
+
+    if (!advancedState) {
+        return;
+    }
+
+    const parentLabel = getSelectedOptionText(parent);
+    const parentMatch = parentLabel.match(/#\d+/);
+    const fileCount = createState.selectedFiles.length;
+    const badges = [
+        {
+            label: `상태 ${getSelectedOptionText(status, '미선택')}`,
+            variant: status?.value ? 'active' : ''
+        },
+        {
+            label: `우선 ${getSelectedOptionText(priority, '미선택')}`,
+            variant: priority?.value ? 'active' : ''
+        },
+        {
+            label: parent?.value ? `상위 ${parentMatch ? parentMatch[0] : '연결됨'}` : '상위 없음',
+            variant: parent?.value ? 'active' : ''
+        },
+        {
+            label: `파일 ${fileCount}개`,
+            variant: fileCount > 0 ? 'success' : ''
+        }
+    ];
+
+    advancedState.innerHTML = badges.map(({ label, variant }) => {
+        const modifierClass = variant ? ` create-advanced-badge--${variant}` : '';
+        return `<span class="create-advanced-badge${modifierClass}">${escapeHTML(label)}</span>`;
+    }).join('');
+}
+
+function getSelectedOptionText(select, fallback = '') {
+    if (!select) {
+        return fallback;
+    }
+
+    const selectedOption = select.options[select.selectedIndex];
+    const nextLabel = selectedOption?.textContent?.trim() || '';
+    return select.value && nextLabel ? nextLabel : fallback;
+}
+
+function hasActiveAdvancedState() {
+    const { status, priority, parent } = getCreateElements();
+    return Boolean(status?.value || priority?.value || parent?.value || createState.selectedFiles.length > 0);
+}
+
+function isAdvancedRelatedMessage(message) {
+    const normalizedMessage = String(message || '').toLowerCase();
+    const advancedKeywords = ['status', 'priority', 'parent', 'attachment', 'file', 'files', '상태', '우선', '상위', '첨부'];
+    return advancedKeywords.some((keyword) => normalizedMessage.includes(keyword));
 }
 
 function getFileSignature(file) {

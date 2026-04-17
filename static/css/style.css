@@ -13,6 +13,8 @@
   --error-color: #f85149;
   --success-color: #3fb950;
   --success-surface: rgba(63, 185, 80, 0.14);
+  --success-border: rgba(63, 185, 80, 0.35);
+  --success-text: #8fe39d;
   --badge-bg: #21262d;
   --shadow-soft: 0 18px 40px rgba(0, 0, 0, 0.24);
   --shadow-lift: 0 20px 40px rgba(0, 0, 0, 0.28);
@@ -423,6 +425,25 @@ header p {
   gap: 16px;
 }
 
+.create-form-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.create-form-row {
+  display: grid;
+  gap: 12px;
+}
+
+.create-form-row--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.create-form-row--split {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .create-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -433,6 +454,10 @@ header p {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.create-field--full {
+  width: 100%;
 }
 
 .create-field > span {
@@ -483,6 +508,7 @@ header p {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
   padding: 14px 16px;
   cursor: pointer;
@@ -515,6 +541,43 @@ header p {
   min-width: 0;
   flex-direction: column;
   gap: 4px;
+}
+
+.create-advanced-state {
+  display: flex;
+  flex: 1 1 220px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+
+.create-advanced-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  max-width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--badge-bg);
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.create-advanced-badge--active {
+  border-color: var(--border-emphasis);
+  background: var(--surface-highlight);
+  color: var(--accent-color-strong);
+}
+
+.create-advanced-badge--success {
+  border-color: var(--success-border);
+  background: var(--success-surface);
+  color: var(--success-text);
 }
 
 .create-advanced-title {
@@ -978,6 +1041,11 @@ header p {
 
   .create-form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .create-advanced-state {
+    justify-content: flex-start;
+    flex-basis: 100%;
   }
 
   .create-actions button {

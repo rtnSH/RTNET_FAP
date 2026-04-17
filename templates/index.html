@@ -109,25 +109,29 @@
                 <div id="create-feedback" class="create-feedback hidden" role="status" aria-live="polite"></div>
 
                 <form id="create-form" class="create-form" novalidate>
-                    <div class="create-form-grid">
-                        <label class="create-field">
-                            <span>프로젝트</span>
-                            <select id="create-project" name="project_id" required>
-                                <option value="">프로젝트 선택</option>
-                            </select>
-                        </label>
-                        <label class="create-field">
-                            <span>유형</span>
-                            <select id="create-tracker" name="tracker_id" required>
-                                <option value="">유형 선택</option>
-                            </select>
-                        </label>
-                        <label class="create-field">
-                            <span>담당자</span>
-                            <select id="create-assignee" name="assignee_key" required>
-                                <option value="">담당자 선택</option>
-                            </select>
-                        </label>
+                    <div class="create-form-layout">
+                        <div class="create-form-row create-form-row--single">
+                            <label class="create-field create-field--full">
+                                <span>프로젝트</span>
+                                <select id="create-project" name="project_id" required>
+                                    <option value="">프로젝트 선택</option>
+                                </select>
+                            </label>
+                        </div>
+                        <div class="create-form-row create-form-row--split">
+                            <label class="create-field">
+                                <span>유형</span>
+                                <select id="create-tracker" name="tracker_id" required>
+                                    <option value="">유형 선택</option>
+                                </select>
+                            </label>
+                            <label class="create-field">
+                                <span>담당자</span>
+                                <select id="create-assignee" name="assignee_key" required>
+                                    <option value="">담당자 선택</option>
+                                </select>
+                            </label>
+                        </div>
                     </div>
 
                     <label class="create-field">
@@ -140,13 +144,14 @@
                         <textarea id="create-description" name="description" rows="6" placeholder="설명을 입력하세요"></textarea>
                     </label>
 
-                    <details id="create-advanced" class="create-advanced">
-                        <summary class="create-advanced-summary">
-                            <span class="create-advanced-copy">
-                                <span class="create-advanced-title">고급 설정</span>
-                                <span class="create-advanced-hint">상태, 우선순위, 상위 일감, 첨부 파일</span>
-                            </span>
-                        </summary>
+                     <details id="create-advanced" class="create-advanced">
+                         <summary class="create-advanced-summary">
+                             <span class="create-advanced-copy">
+                                 <span class="create-advanced-title">고급 설정</span>
+                                 <span class="create-advanced-hint">상태, 우선순위, 상위 일감, 첨부 파일</span>
+                             </span>
+                             <span id="create-advanced-state" class="create-advanced-state" aria-live="polite"></span>
+                         </summary>
                         <div class="create-advanced-content">
                             <div class="create-form-grid create-form-grid--advanced">
                                 <label class="create-field">
