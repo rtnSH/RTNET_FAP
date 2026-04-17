@@ -54,7 +54,7 @@
                     aria-controls="create-panel"
                     aria-expanded="false"
                 >
-                    새 이슈 등록
+                    이슈 등록
                 </button>
                 <div class="redmine-entry-split" data-redmine-entry-split>
                     <a
@@ -62,7 +62,7 @@
                         target="_blank"
                         rel="noopener noreferrer"
                         class="redmine-entry-btn redmine-entry-btn--primary"
-                        aria-label="레드마인 바로가기"
+                        aria-label="레드마인 사이트 바로가기"
                     >
                         <span class="redmine-entry-copy">
                             <span class="redmine-entry-title">레드마인 바로가기</span>
@@ -100,7 +100,7 @@
                 <div class="create-panel-header">
                     <div>
                         <span class="create-kicker">Issue create</span>
-                        <h3>새 이슈 등록</h3>
+                        <h3>이슈 등록</h3>
                         <p>프로젝트와 유형을 선택하면 서버 기본값을 불러옵니다.</p>
                     </div>
                     <button type="button" id="close-create-btn" class="secondary-btn create-close-btn">닫기</button>
@@ -117,6 +117,7 @@
                                     <option value="">프로젝트 선택</option>
                                 </select>
                             </label>
+                            <div id="create-project-path" class="create-project-path" aria-live="polite"></div>
                         </div>
                         <div class="create-form-row create-form-row--split">
                             <label class="create-field">

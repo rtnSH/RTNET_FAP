@@ -151,6 +151,7 @@ function initCreatePanel() {
     elements.parent?.addEventListener('change', renderCreateAdvancedSummary);
     elements.files?.addEventListener('change', handleCreateFileSelection);
     elements.fileList?.addEventListener('click', handleCreateFileListClick);
+    elements.project?.addEventListener('change', renderCreateProjectPath);
 
     renderCreateAdvancedSummary();
 }
@@ -174,7 +175,8 @@ function getCreateElements() {
         description: document.getElementById('create-description'),
         files: document.getElementById('create-files'),
         fileList: document.getElementById('create-file-list'),
-        submitButton: document.getElementById('create-submit-btn')
+        submitButton: document.getElementById('create-submit-btn'),
+        projectPath: document.getElementById('create-project-path')
     };
 }
 
@@ -257,6 +259,7 @@ async function loadCreateOptions({ preserveSelections = true, preserveFeedback =
             statusId: result.defaults?.status?.id ? String(result.defaults.status.id) : '',
             priorityId: result.defaults?.priority?.id ? String(result.defaults.priority.id) : ''
         };
+        createState.projects = result.projects || [];
 
         populateSelect(elements.project, result.projects || [], {
             placeholder: '프로젝트 선택',
@@ -268,8 +271,7 @@ async function loadCreateOptions({ preserveSelections = true, preserveFeedback =
 
                 const depth = Number(item?.depth || 0);
                 const indentation = depth > 0 ? `${'— '.repeat(depth)}` : '';
-                const projectLabel = item.identifier ? `${item.name} (${item.identifier})` : item.name;
-                return `${indentation}${projectLabel}`;
+                return `${indentation}${item.name}`;
             }
         });
 
@@ -297,6 +299,7 @@ async function loadCreateOptions({ preserveSelections = true, preserveFeedback =
 
         resetCreateParentOptions('프로젝트와 유형을 먼저 선택하세요');
         renderCreateAdvancedSummary();
+        renderCreateProjectPath();
 
         if (elements.project?.value && elements.tracker?.value) {
             await loadCreatePrefill({ preserveFeedback: true });
@@ -764,6 +767,7 @@ function resetCreateDraft(options = {}) {
     const elements = getCreateElements();
 
     createState.selectedFiles = [];
+    createState.projects = [];
     createState.latestOptionsKey = '';
     createState.latestPrefillKey = '';
     createState.lastAppliedSubject = '';
@@ -825,6 +829,7 @@ function resetCreateDraft(options = {}) {
     }
 
     renderCreateAdvancedSummary();
+    renderCreateProjectPath();
 }
 
 function renderCreateAdvancedSummary() {
@@ -860,6 +865,47 @@ function renderCreateAdvancedSummary() {
         const modifierClass = variant ? ` create-advanced-badge--${variant}` : '';
         return `<span class="create-advanced-badge${modifierClass}">${escapeHTML(label)}</span>`;
     }).join('');
+}
+
+function buildProjectPath(projectId) {
+    const projects = createState.projects || [];
+    if (!projectId) {
+        return '';
+    }
+
+    const projectMap = new Map();
+    projects.forEach((p) => { projectMap.set(String(p.id), p); });
+
+    const path = [];
+    let current = projectMap.get(String(projectId));
+    const visited = new Set();
+
+    while (current && !visited.has(String(current.id))) {
+        visited.add(String(current.id));
+        path.unshift(current.name);
+        const parentId = current.parent_id ? String(current.parent_id) : null;
+        current = parentId ? projectMap.get(parentId) : null;
+    }
+
+    return path.length > 0 ? path.join(' › ') : '';
+}
+
+function renderCreateProjectPath() {
+    const { project, projectPath } = getCreateElements();
+
+    if (!projectPath) {
+        return;
+    }
+
+    const path = buildProjectPath(project?.value);
+    if (!path) {
+        projectPath.textContent = '';
+        projectPath.classList.add('hidden');
+        return;
+    }
+
+    projectPath.textContent = path;
+    projectPath.classList.remove('hidden');
 }
 
 function getSelectedOptionText(select, fallback = '') {

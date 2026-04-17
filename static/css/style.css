@@ -466,6 +466,18 @@ header p {
   font-weight: 600;
 }
 
+.create-project-path {
+  font-size: 0.82rem;
+  color: var(--accent-color);
+  padding: 4px 0 0 2px;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.create-project-path.hidden {
+  display: none;
+}
+
 .create-form input[type="text"],
 .create-form select,
 .create-form textarea,
