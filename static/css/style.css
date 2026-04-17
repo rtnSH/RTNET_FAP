@@ -487,21 +487,30 @@ header p {
   font-weight: 600;
 }
 
+/* 최상위 프로젝트 - 진한 파란색 */
 #create-project option[data-depth="0"] {
-  color: var(--accent-color-strong);
+  color: #3b82f6;
+  font-weight: 700;
+}
+
+/* 1 단계 하위 프로젝트 - 진한 남색 */
+#create-project option[data-depth="1"] {
+  color: #1e40af;
   font-weight: 600;
 }
 
-#create-project option[data-depth="1"] {
-  color: var(--text-primary);
-}
-
+/* 2 단계 하위 프로젝트 - 보라색 */
 #create-project option[data-depth="2"] {
-  color: var(--text-secondary);
+  color: #7c3aed;
+  font-weight: 600;
 }
 
-#create-project option[data-depth="3"] {
-  color: var(--text-muted);
+/* 3 단계 이상 - 진한 보라색 */
+#create-project option[data-depth="3"],
+#create-project option[data-depth="4"],
+#create-project option[data-depth="5"] {
+  color: #5b21b6;
+  font-weight: 500;
 }
 
 .create-form input[type="text"],
