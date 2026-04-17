@@ -3,6 +3,7 @@ const networkInputs = document.querySelectorAll('input[name="network"]');
 const createState = {
     selectedFiles: [],
     optionsDefaults: {
+        trackerId: '',
         statusId: '',
         priorityId: ''
     },
@@ -243,6 +244,7 @@ async function loadCreateOptions({ preserveSelections = true, preserveFeedback =
         }
 
         createState.optionsDefaults = {
+            trackerId: result.defaults?.tracker?.id ? String(result.defaults.tracker.id) : '',
             statusId: result.defaults?.status?.id ? String(result.defaults.status.id) : '',
             priorityId: result.defaults?.priority?.id ? String(result.defaults.priority.id) : ''
         };
@@ -255,13 +257,16 @@ async function loadCreateOptions({ preserveSelections = true, preserveFeedback =
                     return '';
                 }
 
-                return item.identifier ? `${item.name} (${item.identifier})` : item.name;
+                const depth = Number(item?.depth || 0);
+                const indentation = depth > 0 ? `${'— '.repeat(depth)}` : '';
+                const projectLabel = item.identifier ? `${item.name} (${item.identifier})` : item.name;
+                return `${indentation}${projectLabel}`;
             }
         });
 
         populateSelect(elements.tracker, result.trackers || [], {
             placeholder: '유형 선택',
-            selectedValue: currentValues.trackerId
+            selectedValue: currentValues.trackerId || createState.optionsDefaults.trackerId
         });
 
         populateSelect(elements.assignee, result.assignees || [], {
@@ -419,6 +424,10 @@ function resetCreatePrefillFields() {
 
     if (createState.optionsDefaults.priorityId && hasSelectValue(elements.priority, createState.optionsDefaults.priorityId)) {
         elements.priority.value = createState.optionsDefaults.priorityId;
+    }
+
+    if (createState.optionsDefaults.trackerId && hasSelectValue(elements.tracker, createState.optionsDefaults.trackerId)) {
+        elements.tracker.value = createState.optionsDefaults.trackerId;
     }
 }
 

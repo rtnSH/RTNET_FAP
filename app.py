@@ -27,9 +27,10 @@ ASSIGNEE_MAP = {
     'ssjeon': {'label': '전상수', 'login': 'ssjeon'},
     'sh.lee': {'label': '이수호', 'login': 'sh.lee'},
 }
+DEFAULT_TRACKER_NAME = '4_오류수정'
 DEFAULT_STATUS_NAME = '신규'
 DEFAULT_PRIORITY_NAME = '보통'
-TITLE_PREFIX_PATTERN = re.compile(r'^(\d{2})_(\d+)')
+TITLE_SEGMENT_PATTERN = re.compile(r'^(\d+)[_\-](\d+)(?:[_\-]\d+)*')
 
 
 def normalize_network(network_type):
@@ -219,6 +220,7 @@ def get_create_options():
             'priorities': priorities,
             'assignees': get_assignee_options(),
             'defaults': {
+                'tracker': find_named_option(trackers, DEFAULT_TRACKER_NAME),
                 'status': find_named_option(statuses, DEFAULT_STATUS_NAME),
                 'priority': find_named_option(priorities, DEFAULT_PRIORITY_NAME),
             }
@@ -433,12 +435,35 @@ def format_issue_summary_from_json(issue):
 
 def get_project_options(redmine):
     projects = [format_project_option(project) for project in redmine.project.all()]
-    return sorted(projects, key=lambda item: (item['name'] or '').lower())
+    children_by_parent_id = {}
+    root_projects = []
+
+    for project in projects:
+        parent_id = project.get('parent_id')
+        if parent_id is None:
+            root_projects.append(project)
+            continue
+
+        children_by_parent_id.setdefault(str(parent_id), []).append(project)
+
+    ordered_projects = []
+
+    def append_project_branch(project, depth=0):
+        project['depth'] = depth
+        ordered_projects.append(project)
+
+        for child in sort_named_resources(children_by_parent_id.get(str(project.get('id')), [])):
+            append_project_branch(child, depth + 1)
+
+    for root_project in sort_named_resources(root_projects):
+        append_project_branch(root_project)
+
+    return ordered_projects
 
 
 def get_tracker_options(redmine):
     trackers = [format_tracker_option(tracker) for tracker in redmine.tracker.all()]
-    return sorted(trackers, key=lambda item: (item['name'] or '').lower())
+    return sort_named_resources(trackers)
 
 
 def get_tracker_by_id(redmine, tracker_id):
@@ -448,12 +473,12 @@ def get_tracker_by_id(redmine, tracker_id):
 
 def get_status_options(redmine):
     statuses = [format_named_option(status) for status in redmine.issue_status.all()]
-    return sorted(statuses, key=lambda item: (item['name'] or '').lower())
+    return sort_named_resources(statuses)
 
 
 def get_priority_options(redmine):
     priorities = [format_named_option(priority) for priority in redmine.enumeration.filter(resource='issue_priorities')]
-    return sorted(priorities, key=lambda item: (item['name'] or '').lower())
+    return sort_named_resources(priorities)
 
 
 def get_assignee_options():
@@ -468,10 +493,20 @@ def get_assignee_options():
 
 
 def format_project_option(project):
+    parent = None
+
+    try:
+        parent = getattr(project, 'parent', None)
+    except Exception:
+        parent = None
+
     return {
         'id': getattr(project, 'id', None),
         'name': getattr(project, 'name', None),
         'identifier': getattr(project, 'identifier', None),
+        'parent_id': getattr(parent, 'id', None) if parent else None,
+        'parent_name': getattr(parent, 'name', None) if parent else None,
+        'depth': 0,
     }
 
 
@@ -496,6 +531,28 @@ def find_named_option(options, target_name):
 def find_option_by_id(options, target_id):
     target_id = str(target_id)
     return next((option for option in options if str(option.get('id')) == target_id), None)
+
+
+def get_name_sort_key(name):
+    normalized_name = (name or '').strip()
+    match = re.match(r'^(\d+)', normalized_name)
+
+    if not match:
+        return (1, float('inf'), normalized_name.lower())
+
+    return (0, int(match.group(1)), normalized_name.lower())
+
+
+def sort_named_resources(resources):
+    return sorted(resources, key=lambda item: get_name_sort_key(item.get('name')))
+
+
+def get_tracker_prefix(tracker_name):
+    match = re.match(r'^(\d+)', (tracker_name or '').strip())
+    if not match:
+        return None
+
+    return int(match.group(1))
 
 
 def get_project_by_id(redmine, project_id):
@@ -597,25 +654,37 @@ def resolve_subject_default(issues, tracker_name):
     if not issues:
         return tracker_name, 'tracker_name'
 
-    latest_match = None
+    tracker_prefix = get_tracker_prefix(tracker_name)
+    highest_number = None
+    highest_width = 2
+
     for issue in issues:
         subject = (getattr(issue, 'subject', '') or '').strip()
-        match = TITLE_PREFIX_PATTERN.match(subject)
+        match = TITLE_SEGMENT_PATTERN.match(subject)
         if not match:
             continue
 
-        latest_match = {
-            'prefix': match.group(1),
-            'number': int(match.group(2)),
-            'width': len(match.group(2)),
-        }
+        prefix_number = int(match.group(1))
+        if tracker_prefix is not None and prefix_number != tracker_prefix:
+            continue
 
-    if not latest_match:
+        current_number = int(match.group(2))
+        current_width = max(len(match.group(2)), 2)
+
+        if highest_number is None or current_number > highest_number:
+            highest_number = current_number
+            highest_width = current_width
+
+    if highest_number is None:
         return tracker_name, 'tracker_name'
 
-    next_number = latest_match['number'] + 1
-    padded_number = str(next_number).zfill(latest_match['width'])
-    return f"{latest_match['prefix']}_{padded_number} ", 'increment'
+    if tracker_prefix is None:
+        return tracker_name, 'tracker_name'
+
+    next_number = highest_number + 1
+    padded_prefix = str(tracker_prefix).zfill(2)
+    padded_number = str(next_number).zfill(highest_width)
+    return f"{padded_prefix}_{padded_number} ", 'increment'
 
 
 def build_parent_issue_options(issues):
