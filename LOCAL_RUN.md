@@ -64,8 +64,8 @@ python3 --version
 주의:
 
 - 실제 값은 절대 Git에 커밋하면 안 됩니다.
-- 실제 Redmine URL은 HTTPS를 사용해야 합니다.
-- 평문 HTTP는 localhost 기반 mock 테스트만 허용됩니다.
+- `REDMINE_URL_INTERNAL`과 `REDMINE_URL_EXTERNAL`은 현재 환경에 맞춰 HTTP 또는 HTTPS를 사용할 수 있습니다.
+- 다만 평문 HTTP를 쓰면 Redmine 아이디/비밀번호가 TLS 없이 전달되므로, 신뢰 가능한 사내망이나 VPN 안에서만 사용해야 합니다.
 
 ---
 
@@ -224,13 +224,15 @@ Content-Type: application/json
 
 - `.env` 없음
 - 필수 환경 변수 누락
-- Redmine URL이 HTTPS가 아님
+- Redmine URL 규칙이 맞지 않음
 
 해결:
 
 1. `.env.example`을 `.env`로 복사했는지 확인
 2. `REDMINE_URL_INTERNAL`, `REDMINE_URL_EXTERNAL`, `SECRET_KEY`를 모두 채웠는지 확인
-3. 실제 Redmine URL이 HTTPS인지 확인
+3. `REDMINE_URL_INTERNAL`/`REDMINE_URL_EXTERNAL`가 올바른 URL 형식인지 확인
+   - internal/external 모두 HTTP/HTTPS 허용
+   - hostname이 실제로 들어 있어야 함
 
 ### 문제 2: 로그인 실패
 

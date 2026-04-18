@@ -87,7 +87,8 @@ gunicorn --workers 1 app:app
   - 설정 검증 로직이 `REDMINE_URL_INTERNAL`, `REDMINE_URL_EXTERNAL`, `SECRET_KEY`를 모두 확인합니다.
   - 배포에서 internal을 실제로 쓰지 않더라도 값은 채워야 합니다.
   - Render에서 internal에 접근할 수 없다면, startup 검증용으로 `REDMINE_URL_INTERNAL`을 `REDMINE_URL_EXTERNAL`과 동일하게 둘 수 있습니다.
-- 실제 Redmine URL은 HTTPS여야 합니다. 평문 HTTP는 localhost 기반의 로컬 mock 테스트만 허용됩니다.
+- `REDMINE_URL_INTERNAL`과 `REDMINE_URL_EXTERNAL`은 모두 HTTP 또는 HTTPS를 사용할 수 있습니다.
+- 다만 평문 HTTP를 쓰면 Redmine 로그인 정보가 TLS 없이 전달되므로, 신뢰 가능한 내부망/VPN 환경에서만 사용하는 것이 안전합니다.
 
 ## 5) 배포 확인
 

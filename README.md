@@ -54,7 +54,8 @@ Notes:
 - The app keeps the Redmine password only in server process memory and stores a session reference on disk. If the app process restarts, users must log in again.
 - For the same reason, keep production-style runs on a single Gunicorn worker unless you redesign the credential store to be shared across workers.
 - This login flow depends on Redmine username/password auth. If your Redmine account enforces 2FA or disables password-based API access, login may fail.
-- Use HTTPS for real Redmine base URLs. Plain HTTP is only tolerated for localhost-style mock testing.
+- `REDMINE_URL_INTERNAL` and `REDMINE_URL_EXTERNAL` may use HTTP or HTTPS in your environment.
+- If you use plain HTTP, remember that Redmine username/password travels without TLS protection, so this should stay inside a trusted internal network or VPN.
 
 ## Run locally
 

@@ -105,19 +105,19 @@ def validate_config():
             f"{', '.join(missing)}. Copy .env.example to .env and fill in real Redmine values."
         )
 
-    invalid_urls = [
-        name
-        for name, value in {
-            'REDMINE_URL_INTERNAL': REDMINE_URL_INTERNAL,
-            'REDMINE_URL_EXTERNAL': REDMINE_URL_EXTERNAL,
-        }.items()
-        if not is_secure_redmine_url(value)
-    ]
+    invalid_urls = []
+
+    if not is_allowed_internal_redmine_url(REDMINE_URL_INTERNAL):
+        invalid_urls.append('REDMINE_URL_INTERNAL')
+
+    if not is_allowed_redmine_url(REDMINE_URL_EXTERNAL):
+        invalid_urls.append('REDMINE_URL_EXTERNAL')
 
     if invalid_urls:
         raise ConfigError(
-            'Redmine base URLs must use HTTPS unless they point to localhost for local-only testing: '
-            f"{', '.join(invalid_urls)}"
+            'Redmine base URLs must follow these rules: '
+            'REDMINE_URL_INTERNAL and REDMINE_URL_EXTERNAL must use HTTP or HTTPS and include a valid host. '
+            f"Invalid: {', '.join(invalid_urls)}"
         )
 
 
@@ -196,10 +196,13 @@ def get_session_user():
     }
 
 
-def is_secure_redmine_url(url):
+def is_allowed_redmine_url(url):
     parsed = urlparse(url or '')
-    hostname = (parsed.hostname or '').lower()
-    return parsed.scheme == 'https' or hostname in {'localhost', '127.0.0.1'}
+    return parsed.scheme in {'http', 'https'} and bool(parsed.hostname)
+
+
+def is_allowed_internal_redmine_url(url):
+    return is_allowed_redmine_url(url)
 
 
 validate_config()
