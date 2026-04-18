@@ -14,15 +14,36 @@
 >
     <div class="container">
         <header>
-            <h1>Redmine Sync <span class="header-subtitle">(for Engineers)</span></h1>
+            <h1>
+                <svg viewBox="0 0 340 100" width="160" height="auto" xmlns="http://www.w3.org/2000/svg" style="margin-bottom: -10px;">
+                    <defs>
+                        <linearGradient id="header-logo-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#58a6ff" />
+                            <stop offset="100%" stop-color="#7ab8ff" />
+                        </linearGradient>
+                    </defs>
+                    <circle cx="45" cy="50" r="24" stroke="url(#header-logo-gradient)" stroke-width="4" fill="none" stroke-dasharray="35 15" stroke-linecap="round">
+                        <animateTransform attributeName="transform" type="rotate" from="0 45 50" to="360 45 50" dur="10s" repeatCount="indefinite" />
+                    </circle>
+                    <circle cx="45" cy="50" r="14" stroke="url(#header-logo-gradient)" stroke-width="4" fill="none" stroke-dasharray="15 10" stroke-linecap="round">
+                        <animateTransform attributeName="transform" type="rotate" from="360 45 50" to="0 45 50" dur="8s" repeatCount="indefinite" />
+                    </circle>
+                    <circle cx="45" cy="50" r="4" fill="url(#header-logo-gradient)" />
+                    <text x="95" y="55" font-family="'Inter', sans-serif" font-size="36" font-weight="700" fill="#c9d1d9" letter-spacing="-0.02em">Redmine Sync</text>
+                    <text x="100" y="80" font-family="'Inter', sans-serif" font-size="14" font-weight="400" fill="#8b949e">for Engineers</text>
+                </svg>
+            </h1>
             
             <div id="user-profile-bar" class="user-profile-bar hidden">
                 <div class="user-info">
-                    <span class="status-dot"></span>
+                    <span class="user-greeting">Engineer</span>
                     <span id="profile-user-name" class="profile-name"></span>
-                    <span class="profile-network">(<span id="profile-network-label"></span>)</span>
                 </div>
-                <button type="button" id="profile-logout-btn" class="secondary-btn small-btn">로그아웃</button>
+                <button type="button" id="profile-logout-btn" class="icon-logout-btn" title="Sign Out">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="logout-icon" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+                    </svg>
+                </button>
             </div>
         </header>
 
@@ -90,12 +111,6 @@
                         <button type="button" id="auth-logout-btn" class="secondary-btn hidden">로그아웃</button>                        
                     </div>
                 </form>
-
-                <div id="auth-session-summary" class="auth-session-summary hidden">
-                    <p><strong>현재 사용자:</strong> <span id="auth-user-name"></span></p>
-                    <p><strong>현재 대상 네트워크:</strong> <span id="auth-network-label"></span></p>
-                    <p class="auth-session-hint">네트워크를 바꾸면 이후 조회/등록 요청 대상만 바뀝니다.</p>
-                </div>
             </div>
         </section>
 

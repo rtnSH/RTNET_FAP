@@ -10,3 +10,6 @@ ENV/
 .idea/
 .opencode/
 .playwright-mcp/
+GEMINI.md
+Gemini.txt
+backup/

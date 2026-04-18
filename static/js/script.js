@@ -321,7 +321,7 @@ async function loginToRedmine() {
 
     clearAuthFeedback();
     elements.loginButton.disabled = true;
-    elements.loginButton.textContent = '로그인 중...';
+    elements.loginButton.textContent = 'Signing In...';
 
     try {
         const result = await apiRequest('/api/auth/login', {
@@ -347,7 +347,7 @@ async function loginToRedmine() {
         clearProtectedView('로그인에 성공하면 최근 이슈와 검색 결과가 여기에 표시됩니다.');
     } finally {
         elements.loginButton.disabled = false;
-        elements.loginButton.textContent = '로그인';
+        elements.loginButton.textContent = 'Sign In';
     }
 }
 

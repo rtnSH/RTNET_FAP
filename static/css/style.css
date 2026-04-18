@@ -44,14 +44,17 @@ body {
 }
 
 header {
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin-bottom: 30px;
+  gap: 10px;
 }
 
 header h1 {
   font-size: 2rem;
   color: var(--accent-color);
-  margin-bottom: 5px;
+  margin-bottom: 0;
   font-family: 'Inter', sans-serif;
   font-weight: 700;
   letter-spacing: -0.02em;
@@ -212,62 +215,60 @@ header p {
 .user-profile-bar {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 16px;
-  margin-top: 20px;
-  padding: 8px 16px 8px 20px;
-  background: linear-gradient(180deg, rgba(22, 27, 34, 0.6) 0%, rgba(15, 20, 27, 0.8) 100%);
-  border: 1px solid var(--border-color);
-  border-radius: 999px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(8px);
+  gap: 12px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  margin: 0;
 }
 
 .user-info {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.95rem;
-  line-height: 1;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
 }
 
-.status-dot {
-  width: 8px;
-  height: 8px;
-  background-color: var(--success-color);
-  border-radius: 50%;
-  box-shadow: 0 0 8px var(--success-color);
-  margin-top: 1px;
+.user-greeting {
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .profile-name {
   font-weight: 600;
   color: var(--text-primary);
+  font-size: 0.95rem;
   line-height: 1;
 }
 
-.profile-network {
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-  line-height: 1;
-}
-
-.small-btn {
-  display: inline-flex;
+.icon-logout-btn {
+  display: flex;
   align-items: center;
   justify-content: center;
-  padding: 6px 14px;
-  font-size: 0.85rem;
-  line-height: 1;
-  margin-bottom: 0;
-  min-height: auto;
-  border-radius: 999px;
-  border-color: rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.04);
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: rgba(248, 81, 73, 0.1);
+  color: var(--error-color);
+  border: 1px solid rgba(248, 81, 73, 0.2);
+  transition: background var(--transition-base), color var(--transition-base), transform var(--transition-base);
+  cursor: pointer;
+  padding: 0;
 }
-.small-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.2);
+
+.icon-logout-btn:hover {
+  background: rgba(248, 81, 73, 0.2);
+  color: #ffb4ad;
+  transform: translateY(-2px);
+}
+
+.logout-icon {
+  width: 20px;
+  height: 20px;
 }
 
 .auth-form {
