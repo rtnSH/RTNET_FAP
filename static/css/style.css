@@ -197,6 +197,53 @@ header p {
   color: var(--success-text);
 }
 
+.user-profile-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 20px;
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  width: fit-content;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  background-color: var(--success-color);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--success-color);
+}
+
+.profile-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.profile-network {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.small-btn {
+  padding: 4px 12px;
+  font-size: 0.85rem;
+  margin-bottom: 0;
+  min-height: auto;
+}
+
 .auth-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

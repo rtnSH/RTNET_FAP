@@ -136,7 +136,13 @@ function getAuthElements() {
         sessionSummary: document.getElementById('auth-session-summary'),
         userName: document.getElementById('auth-user-name'),
         networkLabel: document.getElementById('auth-network-label'),
-        authRequiredHint: document.getElementById('auth-required-hint')
+        authRequiredHint: document.getElementById('auth-required-hint'),
+        profileUserName: document.getElementById('profile-user-name'),
+        profileNetworkLabel: document.getElementById('profile-network-label'),
+        profileLogoutBtn: document.getElementById('profile-logout-btn'),
+        authPanelSection: document.getElementById('auth-panel'),
+        userProfileBar: document.getElementById('user-profile-bar'),
+        searchSection: document.getElementById('search-section')
     };
 }
 
@@ -154,6 +160,10 @@ function initAuthPanel() {
     elements.logoutButton?.addEventListener('click', () => {
         void logoutFromRedmine();
     });
+    
+    elements.profileLogoutBtn?.addEventListener('click', () => {
+        void logoutFromRedmine();
+    });
 }
 
 async function syncAuthSession() {
@@ -165,7 +175,7 @@ async function syncAuthSession() {
         if (authState.authenticated) {
             await loadRecentIssues();
         } else {
-            clearProtectedView('로그인 후 최근 이슈와 검색 기능을 사용할 수 있습니다.');
+            clearProtectedView();
         }
     } catch (error) {
         renderAuthFeedback('error', `로그인 상태를 확인하지 못했습니다: ${escapeHTML(error.message)}`);
@@ -210,10 +220,24 @@ function renderAuthState() {
     if (authElements.userName) {
         authElements.userName.textContent = authState.user?.display_name || authState.user?.username || '-';
     }
+    
+    if (authElements.profileUserName) {
+        authElements.profileUserName.textContent = authState.user?.display_name || authState.user?.username || '-';
+    }
 
     renderAuthNetworkLabel();
 
     authElements.authRequiredHint?.classList.toggle('hidden', isAuthenticated);
+    
+    if (isAuthenticated) {
+        authElements.authPanelSection?.classList.add('hidden');
+        authElements.userProfileBar?.classList.remove('hidden');
+        authElements.searchSection?.classList.remove('hidden');
+    } else {
+        authElements.authPanelSection?.classList.remove('hidden');
+        authElements.userProfileBar?.classList.add('hidden');
+        authElements.searchSection?.classList.add('hidden');
+    }
 
     const searchInput = document.getElementById('issue-query');
     const searchButton = document.getElementById('search-btn');
@@ -233,12 +257,15 @@ function renderAuthState() {
 }
 
 function renderAuthNetworkLabel() {
-    const { networkLabel } = getAuthElements();
-    if (!networkLabel) {
-        return;
+    const { networkLabel, profileNetworkLabel } = getAuthElements();
+    const label = getSelectedNetwork() === 'external' ? '외부망' : '내부망';
+    
+    if (networkLabel) {
+        networkLabel.textContent = label;
     }
-
-    networkLabel.textContent = getSelectedNetwork() === 'external' ? '외부망' : '내부망';
+    if (profileNetworkLabel) {
+        profileNetworkLabel.textContent = label;
+    }
 }
 
 function renderAuthFeedback(type, message) {
@@ -328,8 +355,8 @@ async function logoutFromRedmine() {
             method: 'POST'
         });
         applyAuthSession(result);
-        clearAuthFeedback();
-        clearProtectedView('로그아웃되었습니다. 다시 로그인하면 검색과 등록 기능을 사용할 수 있습니다.');
+        renderAuthFeedback('success', '로그아웃되었습니다.');
+        clearProtectedView();
     } catch (error) {
         renderAuthFeedback('error', escapeHTML(error.message));
     }
