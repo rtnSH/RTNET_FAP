@@ -14,8 +14,7 @@
 >
     <div class="container">
         <header>
-            <h1>Redmine History</h1>
-            <p>이슈 번호 또는 내용을 입력하여 변경 이력을 확인하세요.</p>
+            <h1>Redmine Sync <span class="header-subtitle">(for Engineers)</span></h1>
             
             <div id="user-profile-bar" class="user-profile-bar hidden">
                 <div class="user-info">
@@ -53,28 +52,42 @@
         <section id="auth-panel" class="auth-panel" aria-live="polite">
             <div class="card auth-card">
                 <div class="auth-card-header">
-                    <div>
-                        <span class="auth-kicker">Redmine session</span>
-                        <h3>Redmine 로그인</h3>
-                        <p>이 앱은 개인 Redmine 계정으로 로그인한 뒤 조회와 등록을 수행합니다.</p>
+                    <div class="auth-logo-container">
+                        <svg class="auth-logo" viewBox="0 0 340 100" width="100%" height="auto" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <linearGradient id="logo-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#58a6ff" />
+                                    <stop offset="100%" stop-color="#7ab8ff" />
+                                </linearGradient>
+                            </defs>
+                            <circle cx="45" cy="50" r="24" stroke="url(#logo-gradient)" stroke-width="4" fill="none" stroke-dasharray="35 15" stroke-linecap="round">
+                                <animateTransform attributeName="transform" type="rotate" from="0 45 50" to="360 45 50" dur="10s" repeatCount="indefinite" />
+                            </circle>
+                            <circle cx="45" cy="50" r="14" stroke="url(#logo-gradient)" stroke-width="4" fill="none" stroke-dasharray="15 10" stroke-linecap="round">
+                                <animateTransform attributeName="transform" type="rotate" from="360 45 50" to="0 45 50" dur="8s" repeatCount="indefinite" />
+                            </circle>
+                            <circle cx="45" cy="50" r="4" fill="url(#logo-gradient)" />
+                            
+                            <text x="95" y="55" font-family="'Inter', sans-serif" font-size="36" font-weight="700" fill="#c9d1d9" letter-spacing="-0.02em">Redmine Sync</text>
+                            <text x="100" y="80" font-family="'Inter', sans-serif" font-size="14" font-weight="400" fill="#8b949e">for Engineers</text>
+                        </svg>
                     </div>
-                    <div id="auth-status-chip" class="auth-status-chip">로그인 확인 중</div>
                 </div>
 
                 <div id="auth-feedback" class="create-feedback hidden" role="status" aria-live="polite"></div>
 
                 <form id="auth-form" class="auth-form" novalidate>
-                    <label class="create-field">
-                        <span>Redmine 아이디</span>
-                        <input type="text" id="auth-username" name="username" autocomplete="username" placeholder="아이디를 입력하세요" required>
-                    </label>
-                    <label class="create-field">
-                        <span>Redmine 비밀번호</span>
-                        <input type="password" id="auth-password" name="password" autocomplete="current-password" placeholder="비밀번호를 입력하세요" required>
-                    </label>
+                    <div class="auth-field">
+                        <span class="auth-field-icon" aria-hidden="true">👤</span>
+                        <input type="text" id="auth-username" name="username" autocomplete="username" placeholder="아이디" required>
+                    </div>
+                    <div class="auth-field">
+                        <span class="auth-field-icon" aria-hidden="true">🔒</span>
+                        <input type="password" id="auth-password" name="password" autocomplete="current-password" placeholder="비밀번호" required>
+                    </div>
                     <div class="auth-actions">
-                        <button type="submit" id="auth-login-btn">로그인</button>
-                        <button type="button" id="auth-logout-btn" class="secondary-btn hidden">로그아웃</button>
+                        <button type="submit" id="auth-login-btn">Sign In</button>
+                        <button type="button" id="auth-logout-btn" class="secondary-btn hidden">로그아웃</button>                        
                     </div>
                 </form>
 

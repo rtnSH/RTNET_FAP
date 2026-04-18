@@ -233,10 +233,12 @@ function renderAuthState() {
         authElements.authPanelSection?.classList.add('hidden');
         authElements.userProfileBar?.classList.remove('hidden');
         authElements.searchSection?.classList.remove('hidden');
+        document.body.classList.remove('is-unauthenticated');
     } else {
         authElements.authPanelSection?.classList.remove('hidden');
         authElements.userProfileBar?.classList.add('hidden');
         authElements.searchSection?.classList.add('hidden');
+        document.body.classList.add('is-unauthenticated');
     }
 
     const searchInput = document.getElementById('issue-query');
