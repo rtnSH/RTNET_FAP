@@ -198,18 +198,17 @@ header p {
 }
 
 .user-profile-bar {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 15px;
+  gap: 16px;
   margin-top: 20px;
-  padding: 10px 20px;
-  background: rgba(255, 255, 255, 0.03);
+  padding: 8px 16px 8px 20px;
+  background: linear-gradient(180deg, rgba(22, 27, 34, 0.6) 0%, rgba(15, 20, 27, 0.8) 100%);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  width: fit-content;
-  margin-left: auto;
-  margin-right: auto;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(8px);
 }
 
 .user-info {
@@ -238,23 +237,34 @@ header p {
 }
 
 .small-btn {
-  padding: 4px 12px;
+  padding: 6px 14px;
   font-size: 0.85rem;
   margin-bottom: 0;
   min-height: auto;
+  border-radius: 999px;
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+}
+.small-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .auth-form {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .auth-actions {
   display: flex;
-  align-items: end;
+  flex-direction: column;
   gap: 10px;
-  grid-column: 1 / -1;
+  margin-top: 8px;
+}
+.auth-actions button {
+  width: 100%;
+  padding: 12px 24px;
 }
 
 .auth-session-summary {
