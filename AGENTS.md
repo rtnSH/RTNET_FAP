@@ -13,9 +13,9 @@
 - 이 작업 공간에서는 `python`이 `PATH`에 없으므로, 활성화된 가상환경이 `python`을 제공하는 경우가 아니면 `python3`를 우선 사용하라.
 
 ## 환경 변수 및 외부 의존성
-- 앱은 import 시점에 `load_dotenv()`를 호출하며 `REDMINE_URL_INTERNAL`, `REDMINE_URL_EXTERNAL`, `REDMINE_API_KEY`를 기대한다.
+- 앱은 import 시점에 `load_dotenv()`를 호출하며 `REDMINE_URL_INTERNAL`, `REDMINE_URL_EXTERNAL`, `SECRET_KEY`를 기대한다.
 - `.env`는 gitignore에 포함되어 있다. 절대 커밋하지 말고, 값도 로그에 남기지 마라.
-- `/api/search`, `/api/issue/<id>`, `/api/attachment/<id>`를 호출하는 기능은 모두 실제 Redmine 연결과 유효한 인증 정보에 의존한다.
+- `/api/search`, `/api/issue/<id>`, `/api/attachment/<id>`를 호출하는 기능은 모두 실제 Redmine 연결과 유효한 로그인 세션에 의존한다.
 
 ## 검증 가이드
 - 이 저장소에는 테스트 스위트, 린트 설정, 타입체크 설정, 의미 있는 앱 검증용 CI가 없다. `.github/workflows/keep_alive.yml`은 배포된 Render 앱에 핑만 보내는 용도다.
