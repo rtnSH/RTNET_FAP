@@ -1,5 +1,12 @@
 const appConfig = getAppConfig();
 const networkInputs = document.querySelectorAll('input[name="network"]');
+const authState = {
+    authenticated: false,
+    csrfToken: '',
+    user: null,
+    network: appConfig.defaultNetwork || 'internal'
+};
+
 const createState = {
     selectedFiles: [],
     optionsDefaults: {
@@ -15,12 +22,17 @@ const createState = {
     latestPrefillKey: ''
 };
 
+initAuthPanel();
 initRedmineEntrySplitButton();
 initCreatePanel();
 
-document.getElementById('search-btn').addEventListener('click', searchIssue);
+document.getElementById('search-btn').addEventListener('click', () => {
+    void searchIssue();
+});
 document.getElementById('issue-query').addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') searchIssue();
+    if (e.key === 'Enter') {
+        void searchIssue();
+    }
 });
 
 networkInputs.forEach((input) => {
@@ -32,8 +44,10 @@ networkInputs.forEach((input) => {
         }
 
         if (shouldRefreshRecentIssues()) {
-            loadRecentIssues();
+            void loadRecentIssues();
         }
+
+        renderAuthNetworkLabel();
     });
 });
 
@@ -42,7 +56,7 @@ document.getElementById('back-btn').addEventListener('click', () => {
     document.getElementById('search-list').classList.remove('hidden');
 });
 
-loadRecentIssues();
+void syncAuthSession();
 
 function initRedmineEntrySplitButton() {
     const splitButton = document.querySelector('[data-redmine-entry-split]');
@@ -102,8 +116,253 @@ function getAppConfig() {
 }
 
 function getSelectedNetwork() {
+    if (appConfig.appMode === 'deploy') {
+        return 'external';
+    }
+
     const checkedInput = document.querySelector('input[name="network"]:checked');
     return checkedInput?.value || appConfig.defaultNetwork || 'internal';
+}
+
+function getAuthElements() {
+    return {
+        form: document.getElementById('auth-form'),
+        username: document.getElementById('auth-username'),
+        password: document.getElementById('auth-password'),
+        feedback: document.getElementById('auth-feedback'),
+        loginButton: document.getElementById('auth-login-btn'),
+        logoutButton: document.getElementById('auth-logout-btn'),
+        statusChip: document.getElementById('auth-status-chip'),
+        sessionSummary: document.getElementById('auth-session-summary'),
+        userName: document.getElementById('auth-user-name'),
+        networkLabel: document.getElementById('auth-network-label'),
+        authRequiredHint: document.getElementById('auth-required-hint')
+    };
+}
+
+function initAuthPanel() {
+    const elements = getAuthElements();
+    if (!elements.form) {
+        return;
+    }
+
+    elements.form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        void loginToRedmine();
+    });
+
+    elements.logoutButton?.addEventListener('click', () => {
+        void logoutFromRedmine();
+    });
+}
+
+async function syncAuthSession() {
+    try {
+        const response = await fetch(`/api/auth/session?network=${getSelectedNetwork()}`);
+        const result = await response.json();
+        applyAuthSession(result);
+
+        if (authState.authenticated) {
+            await loadRecentIssues();
+        } else {
+            clearProtectedView('로그인 후 최근 이슈와 검색 기능을 사용할 수 있습니다.');
+        }
+    } catch (error) {
+        renderAuthFeedback('error', `로그인 상태를 확인하지 못했습니다: ${escapeHTML(error.message)}`);
+        clearProtectedView('로그인 상태를 확인하지 못했습니다. 새로고침 후 다시 시도해주세요.');
+    }
+}
+
+function applyAuthSession(sessionData) {
+    authState.authenticated = Boolean(sessionData?.authenticated);
+    authState.csrfToken = sessionData?.csrf_token || '';
+    authState.user = sessionData?.user || null;
+    authState.network = sessionData?.network || getSelectedNetwork();
+    renderAuthState();
+}
+
+function renderAuthState() {
+    const authElements = getAuthElements();
+    const createElements = getCreateElements();
+    const isAuthenticated = authState.authenticated;
+
+    if (authElements.statusChip) {
+        authElements.statusChip.textContent = isAuthenticated ? '로그인됨' : '로그인 필요';
+        authElements.statusChip.classList.toggle('auth-status-chip--active', isAuthenticated);
+    }
+
+    authElements.loginButton?.classList.toggle('hidden', isAuthenticated);
+    authElements.logoutButton?.classList.toggle('hidden', !isAuthenticated);
+
+    if (authElements.username) {
+        authElements.username.disabled = isAuthenticated;
+    }
+    if (authElements.password) {
+        authElements.password.disabled = isAuthenticated;
+        if (isAuthenticated) {
+            authElements.password.value = '';
+        }
+    }
+
+    if (authElements.sessionSummary) {
+        authElements.sessionSummary.classList.toggle('hidden', !isAuthenticated);
+    }
+    if (authElements.userName) {
+        authElements.userName.textContent = authState.user?.display_name || authState.user?.username || '-';
+    }
+
+    renderAuthNetworkLabel();
+
+    authElements.authRequiredHint?.classList.toggle('hidden', isAuthenticated);
+
+    const searchInput = document.getElementById('issue-query');
+    const searchButton = document.getElementById('search-btn');
+    if (searchInput) {
+        searchInput.disabled = !isAuthenticated;
+    }
+    if (searchButton) {
+        searchButton.disabled = !isAuthenticated;
+    }
+    if (createElements.openButton) {
+        createElements.openButton.disabled = !isAuthenticated;
+    }
+
+    if (!isAuthenticated) {
+        closeCreatePanel();
+    }
+}
+
+function renderAuthNetworkLabel() {
+    const { networkLabel } = getAuthElements();
+    if (!networkLabel) {
+        return;
+    }
+
+    networkLabel.textContent = getSelectedNetwork() === 'external' ? '외부망' : '내부망';
+}
+
+function renderAuthFeedback(type, message) {
+    const { feedback } = getAuthElements();
+    if (!feedback) {
+        return;
+    }
+
+    feedback.className = `create-feedback create-feedback--${type}`;
+    feedback.innerHTML = message;
+}
+
+function clearAuthFeedback() {
+    const { feedback } = getAuthElements();
+    if (!feedback) {
+        return;
+    }
+
+    feedback.className = 'create-feedback hidden';
+    feedback.innerHTML = '';
+}
+
+function clearProtectedView(message = '') {
+    const resultArea = document.getElementById('result-area');
+    const searchList = document.getElementById('search-list');
+    const issueDetail = document.getElementById('issue-detail');
+    const errorMsg = document.getElementById('error-msg');
+
+    resultArea.classList.add('hidden');
+    searchList.classList.add('hidden');
+    issueDetail.classList.add('hidden');
+
+    if (message) {
+        errorMsg.textContent = message;
+        errorMsg.classList.remove('hidden');
+    } else {
+        errorMsg.classList.add('hidden');
+        errorMsg.textContent = '';
+    }
+}
+
+async function loginToRedmine() {
+    const elements = getAuthElements();
+    const username = elements.username?.value.trim() || '';
+    const password = elements.password?.value || '';
+
+    if (!username || !password) {
+        renderAuthFeedback('error', '아이디와 비밀번호를 모두 입력해주세요.');
+        return;
+    }
+
+    clearAuthFeedback();
+    elements.loginButton.disabled = true;
+    elements.loginButton.textContent = '로그인 중...';
+
+    try {
+        const result = await apiRequest('/api/auth/login', {
+            method: 'POST',
+            body: JSON.stringify({
+                username,
+                password,
+                network: getSelectedNetwork()
+            }),
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        applyAuthSession(result);
+        renderAuthFeedback('success', `${escapeHTML(result.user?.display_name || result.user?.username || username)} 계정으로 로그인했습니다.`);
+        if (elements.password) {
+            elements.password.value = '';
+        }
+        await loadRecentIssues();
+    } catch (error) {
+        renderAuthFeedback('error', escapeHTML(error.message));
+        clearProtectedView('로그인에 성공하면 최근 이슈와 검색 결과가 여기에 표시됩니다.');
+    } finally {
+        elements.loginButton.disabled = false;
+        elements.loginButton.textContent = '로그인';
+    }
+}
+
+async function logoutFromRedmine() {
+    try {
+        const result = await apiRequest('/api/auth/logout', {
+            method: 'POST'
+        });
+        applyAuthSession(result);
+        clearAuthFeedback();
+        clearProtectedView('로그아웃되었습니다. 다시 로그인하면 검색과 등록 기능을 사용할 수 있습니다.');
+    } catch (error) {
+        renderAuthFeedback('error', escapeHTML(error.message));
+    }
+}
+
+async function apiRequest(url, options = {}) {
+    const requestOptions = {
+        ...options,
+        headers: {
+            ...(options.headers || {})
+        }
+    };
+
+    if (requestOptions.method && requestOptions.method !== 'GET' && authState.csrfToken) {
+        requestOptions.headers['X-CSRF-Token'] = authState.csrfToken;
+    }
+
+    const response = await fetch(url, requestOptions);
+    const result = await response.json().catch(() => ({}));
+
+    if (response.status === 401) {
+        authState.authenticated = false;
+        authState.user = null;
+        renderAuthState();
+        clearProtectedView('로그인 세션이 만료되었습니다. 다시 로그인해주세요.');
+        throw new Error(result.error || '로그인이 필요합니다.');
+    }
+
+    if (!response.ok || result.error) {
+        throw new Error(result.error || '요청을 처리하지 못했습니다.');
+    }
+
+    return result;
 }
 
 function shouldRefreshRecentIssues() {
@@ -199,6 +458,11 @@ async function openCreatePanel() {
         return;
     }
 
+    if (!authState.authenticated) {
+        renderAuthFeedback('info', '이슈 등록을 사용하려면 먼저 Redmine 로그인이 필요합니다.');
+        return;
+    }
+
     collapseCreateAdvancedSection();
     elements.panel.classList.remove('hidden');
     elements.openButton?.setAttribute('aria-expanded', 'true');
@@ -250,15 +514,10 @@ async function loadCreateOptions({ preserveSelections = true, preserveFeedback =
 
     try {
         const network = getSelectedNetwork();
-        const response = await fetch(`/api/create/options?network=${network}`);
-        const result = await response.json();
+        const result = await apiRequest(`/api/create/options?network=${network}`);
 
         if (createState.latestOptionsKey !== requestKey) {
             return;
-        }
-
-        if (!response.ok || result.error) {
-            throw new Error(result.error || '작성 옵션을 불러오지 못했습니다.');
         }
 
         createState.optionsDefaults = {
@@ -364,17 +623,12 @@ async function loadCreatePrefill({ preserveFeedback = false } = {}) {
 
     try {
         const network = getSelectedNetwork();
-        const response = await fetch(
+        const result = await apiRequest(
             `/api/create/prefill?network=${network}&project_id=${encodeURIComponent(elements.project.value)}&tracker_id=${encodeURIComponent(elements.tracker.value)}`
         );
-        const result = await response.json();
 
         if (createState.latestPrefillKey !== requestKey) {
             return;
-        }
-
-        if (!response.ok || result.error) {
-            throw new Error(result.error || '기본값을 불러오지 못했습니다.');
         }
 
         applyCreatePrefill(result);
@@ -515,15 +769,10 @@ async function submitCreateForm() {
 
     try {
         const network = getSelectedNetwork();
-        const response = await fetch(`/api/issues?network=${network}`, {
+        const result = await apiRequest(`/api/issues?network=${network}`, {
             method: 'POST',
             body: formData
         });
-        const result = await response.json();
-
-        if (!response.ok || result.error) {
-            throw new Error(result.error || '이슈를 생성하지 못했습니다.');
-        }
 
         const currentScope = {
             projectId: elements.project?.value || '',
@@ -981,6 +1230,11 @@ function formatFileSize(size) {
 async function searchIssue() {
     const query = document.getElementById('issue-query').value.trim();
     if (!query) return;
+    if (!authState.authenticated) {
+        renderAuthFeedback('info', '검색을 사용하려면 먼저 Redmine 로그인부터 해주세요.');
+        clearProtectedView('로그인 후 검색 기능을 사용할 수 있습니다.');
+        return;
+    }
 
     const network = getSelectedNetwork();
     const loader = document.getElementById('loader');
@@ -996,10 +1250,7 @@ async function searchIssue() {
     errorMsg.classList.add('hidden');
 
     try {
-        const response = await fetch(`/api/search?q=${encodeURIComponent(query)}&network=${network}`);
-        const result = await response.json();
-
-        if (result.error) throw new Error(result.error);
+        const result = await apiRequest(`/api/search?q=${encodeURIComponent(query)}&network=${network}`);
 
         resultArea.classList.remove('hidden');
         if (result.type === 'single') {
@@ -1022,6 +1273,11 @@ async function searchIssue() {
 }
 
 async function loadRecentIssues() {
+    if (!authState.authenticated) {
+        clearProtectedView('로그인 후 최근 이슈를 확인할 수 있습니다.');
+        return;
+    }
+
     const network = getSelectedNetwork();
     const loader = document.getElementById('loader');
     const resultArea = document.getElementById('result-area');
@@ -1036,10 +1292,7 @@ async function loadRecentIssues() {
     errorMsg.classList.add('hidden');
 
     try {
-        const response = await fetch(`/api/recent?network=${network}`);
-        const result = await response.json();
-
-        if (result.error) throw new Error(result.error);
+        const result = await apiRequest(`/api/recent?network=${network}`);
 
         renderSearchList(result.data, {
             heading: '최근 이슈',
@@ -1056,6 +1309,12 @@ async function loadRecentIssues() {
 }
 
 async function viewDetail(issueId) {
+    if (!authState.authenticated) {
+        renderAuthFeedback('info', '상세 조회를 사용하려면 먼저 Redmine 로그인부터 해주세요.');
+        clearProtectedView('로그인 후 상세 조회를 사용할 수 있습니다.');
+        return;
+    }
+
     const network = getSelectedNetwork();
     const loader = document.getElementById('loader');
     const searchList = document.getElementById('search-list');
@@ -1063,9 +1322,7 @@ async function viewDetail(issueId) {
 
     loader.classList.remove('hidden');
     try {
-        const response = await fetch(`/api/issue/${issueId}?network=${network}`);
-        const data = await response.json();
-        if (data.error) throw new Error(data.error);
+        const data = await apiRequest(`/api/issue/${issueId}?network=${network}`);
 
         renderIssueDetail(data);
         searchList.classList.add('hidden');

@@ -41,11 +41,48 @@
         </section>
         {% endif %}
 
+        <section class="auth-panel" aria-live="polite">
+            <div class="card auth-card">
+                <div class="auth-card-header">
+                    <div>
+                        <span class="auth-kicker">Redmine session</span>
+                        <h3>Redmine 로그인</h3>
+                        <p>이 앱은 개인 Redmine 계정으로 로그인한 뒤 조회와 등록을 수행합니다.</p>
+                    </div>
+                    <div id="auth-status-chip" class="auth-status-chip">로그인 확인 중</div>
+                </div>
+
+                <div id="auth-feedback" class="create-feedback hidden" role="status" aria-live="polite"></div>
+
+                <form id="auth-form" class="auth-form" novalidate>
+                    <label class="create-field">
+                        <span>Redmine 아이디</span>
+                        <input type="text" id="auth-username" name="username" autocomplete="username" placeholder="아이디를 입력하세요" required>
+                    </label>
+                    <label class="create-field">
+                        <span>Redmine 비밀번호</span>
+                        <input type="password" id="auth-password" name="password" autocomplete="current-password" placeholder="비밀번호를 입력하세요" required>
+                    </label>
+                    <div class="auth-actions">
+                        <button type="submit" id="auth-login-btn">로그인</button>
+                        <button type="button" id="auth-logout-btn" class="secondary-btn hidden">로그아웃</button>
+                    </div>
+                </form>
+
+                <div id="auth-session-summary" class="auth-session-summary hidden">
+                    <p><strong>현재 사용자:</strong> <span id="auth-user-name"></span></p>
+                    <p><strong>현재 대상 네트워크:</strong> <span id="auth-network-label"></span></p>
+                    <p class="auth-session-hint">네트워크를 바꾸면 이후 조회/등록 요청 대상만 바뀝니다.</p>
+                </div>
+            </div>
+        </section>
+
         <section class="search-box">
             <div class="search-input-row">
                 <input type="text" id="issue-query" placeholder="이슈 번호 또는 검색어">
                 <button type="button" id="search-btn">검색</button>
             </div>
+            <p id="auth-required-hint" class="auth-required-hint hidden">검색과 이슈 등록을 사용하려면 먼저 위에서 Redmine 로그인을 완료해주세요.</p>
             <div class="search-support-row">
                 <button
                     type="button"
