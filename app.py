@@ -1,6 +1,11 @@
 import os
 import re
-from flask import Flask, render_template, request, jsonify, Response
+import secrets
+from functools import wraps
+from urllib.parse import urlparse
+
+from flask import Flask, render_template, request, jsonify, Response, session
+from flask_session import Session
 from redminelib import Redmine
 import requests
 from dotenv import load_dotenv
@@ -8,6 +13,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
+AUTH_CREDENTIALS = {}
 
 
 class ConfigError(Exception):
@@ -17,9 +23,22 @@ class ConfigError(Exception):
 class CreateIssueValidationError(Exception):
     pass
 
+
+class AuthenticationRequiredError(Exception):
+    pass
+
+
+class AuthenticationFailedError(Exception):
+    pass
+
+
+class CsrfValidationError(Exception):
+    pass
+
 REDMINE_URL_INTERNAL = os.getenv('REDMINE_URL_INTERNAL')
 REDMINE_URL_EXTERNAL = os.getenv('REDMINE_URL_EXTERNAL')
-REDMINE_API_KEY = os.getenv('REDMINE_API_KEY')
+SECRET_KEY = os.getenv('SECRET_KEY')
+SESSION_FILE_DIR = os.getenv('SESSION_FILE_DIR')
 
 ASSIGNEE_MAP = {
     'admin': {'label': '김윤권', 'login': 'admin'},
@@ -54,6 +73,21 @@ def normalize_base_url(url):
 REDMINE_URL_INTERNAL = normalize_base_url(REDMINE_URL_INTERNAL)
 REDMINE_URL_EXTERNAL = normalize_base_url(REDMINE_URL_EXTERNAL)
 
+session_file_dir = SESSION_FILE_DIR or os.path.join('/tmp', 'redmine-helper-sessions')
+os.makedirs(session_file_dir, exist_ok=True)
+
+app.config.update(
+    SECRET_KEY=SECRET_KEY or 'dev-secret-key-change-me',
+    SESSION_TYPE='filesystem',
+    SESSION_FILE_DIR=session_file_dir,
+    SESSION_PERMANENT=False,
+    SESSION_USE_SIGNER=True,
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax',
+    SESSION_COOKIE_SECURE=APP_MODE == 'deploy',
+)
+Session(app)
+
 
 def validate_config():
     missing = []
@@ -62,8 +96,8 @@ def validate_config():
         missing.append('REDMINE_URL_INTERNAL')
     if not REDMINE_URL_EXTERNAL:
         missing.append('REDMINE_URL_EXTERNAL')
-    if not REDMINE_API_KEY:
-        missing.append('REDMINE_API_KEY')
+    if not SECRET_KEY:
+        missing.append('SECRET_KEY')
 
     if missing:
         raise ConfigError(
@@ -71,14 +105,121 @@ def validate_config():
             f"{', '.join(missing)}. Copy .env.example to .env and fill in real Redmine values."
         )
 
+    invalid_urls = [
+        name
+        for name, value in {
+            'REDMINE_URL_INTERNAL': REDMINE_URL_INTERNAL,
+            'REDMINE_URL_EXTERNAL': REDMINE_URL_EXTERNAL,
+        }.items()
+        if not is_secure_redmine_url(value)
+    ]
+
+    if invalid_urls:
+        raise ConfigError(
+            'Redmine base URLs must use HTTPS unless they point to localhost for local-only testing: '
+            f"{', '.join(invalid_urls)}"
+        )
+
+
+def json_error(message, status_code, code=None):
+    payload = {'error': message}
+    if code:
+        payload['code'] = code
+    return jsonify(payload), status_code
+
+
+def get_effective_network(requested_network=None):
+    if APP_MODE == 'deploy':
+        return 'external'
+
+    normalized_network = (requested_network or '').strip().lower()
+    if normalized_network in {'internal', 'external'}:
+        return normalized_network
+    return DEFAULT_NETWORK
+
+
+def get_request_network():
+    return get_effective_network((request.args.get('network') or '').strip().lower())
+
+
+def ensure_csrf_token():
+    token = session.get('csrf_token')
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session['csrf_token'] = token
+    return token
+
+
+def regenerate_session_id():
+    regenerate = getattr(app.session_interface, 'regenerate', None)
+    if callable(regenerate):
+        regenerate(session)
+
+
+def rotate_session_boundary():
+    session['_rotation_marker'] = secrets.token_urlsafe(8)
+    regenerate_session_id()
+    session.pop('_rotation_marker', None)
+
+
+def clear_auth_session(preserve_csrf=True):
+    credential_id = session.get('credential_id')
+    if credential_id:
+        AUTH_CREDENTIALS.pop(credential_id, None)
+
+    csrf_token = session.get('csrf_token') if preserve_csrf else None
+    session.clear()
+    if preserve_csrf and csrf_token:
+        session['csrf_token'] = csrf_token
+
+
+def build_user_payload(username, display_name=None):
+    return {
+        'username': username,
+        'display_name': display_name or username,
+    }
+
+
+def get_session_user():
+    username = session.get('redmine_username')
+    credential_id = session.get('credential_id')
+    credential = AUTH_CREDENTIALS.get(credential_id)
+
+    if not username or not credential_id or not credential:
+        clear_auth_session()
+        raise AuthenticationRequiredError('로그인이 필요합니다.')
+
+    return {
+        'username': username,
+        'password': credential['password'],
+        'display_name': session.get('redmine_display_name') or username,
+    }
+
+
+def is_secure_redmine_url(url):
+    parsed = urlparse(url or '')
+    hostname = (parsed.hostname or '').lower()
+    return parsed.scheme == 'https' or hostname in {'localhost', '127.0.0.1'}
+
 
 validate_config()
 
+
+def remember_session_user(user_payload, password):
+    credential_id = secrets.token_urlsafe(32)
+    AUTH_CREDENTIALS[credential_id] = {
+        'password': password,
+    }
+    session['credential_id'] = credential_id
+    session['redmine_username'] = user_payload['username']
+    session['redmine_display_name'] = user_payload['display_name']
+
+
 def get_redmine(network_type):
     validate_config()
-    network_type = normalize_network(network_type)
-    url = REDMINE_URL_EXTERNAL if network_type == 'external' else REDMINE_URL_INTERNAL
-    return Redmine(url, key=REDMINE_API_KEY)
+    user = get_session_user()
+    url = get_redmine_base_url(network_type)
+    return Redmine(url, username=user['username'], password=user['password'])
 
 
 def get_redmine_base_url(network_type):
@@ -87,18 +228,139 @@ def get_redmine_base_url(network_type):
     return REDMINE_URL_EXTERNAL if network_type == 'external' else REDMINE_URL_INTERNAL
 
 
-def get_request_network():
-    if APP_MODE == 'deploy':
-        return 'external'
+def get_redmine_basic_auth():
+    user = get_session_user()
+    return (user['username'], user['password'])
 
-    requested_network = (request.args.get('network') or '').strip().lower()
-    if requested_network in {'internal', 'external'}:
-        return requested_network
-    return DEFAULT_NETWORK
+
+def verify_redmine_credentials(network_type, username, password):
+    response = requests.get(
+        f"{get_redmine_base_url(network_type)}/users/current.json",
+        auth=(username, password),
+        timeout=10,
+    )
+
+    if response.status_code == 401:
+        raise AuthenticationFailedError('Redmine 로그인 정보가 올바르지 않거나 2차 인증 정책으로 인해 비밀번호 로그인이 허용되지 않습니다.')
+
+    response.raise_for_status()
+
+    user = (response.json() or {}).get('user') or {}
+    first_name = (user.get('firstname') or '').strip()
+    last_name = (user.get('lastname') or '').strip()
+    display_name = ' '.join(part for part in [last_name, first_name] if part).strip() or user.get('login') or username
+    return build_user_payload(user.get('login') or username, display_name)
+
+
+def require_auth(view_func):
+    @wraps(view_func)
+    def wrapped(*args, **kwargs):
+        try:
+            get_session_user()
+        except AuthenticationRequiredError:
+            return json_error('로그인이 필요합니다.', 401, code='auth_required')
+        return view_func(*args, **kwargs)
+
+    return wrapped
+
+
+def require_csrf(view_func):
+    @wraps(view_func)
+    def wrapped(*args, **kwargs):
+        expected_token = ensure_csrf_token()
+        provided_token = (request.headers.get('X-CSRF-Token') or '').strip()
+        if not provided_token or provided_token != expected_token:
+            return json_error('유효하지 않은 요청입니다. 페이지를 새로고침한 뒤 다시 시도해주세요.', 403, code='csrf_invalid')
+        return view_func(*args, **kwargs)
+
+    return wrapped
+
+
+def is_authentication_error(error):
+    message = str(error).lower()
+    return any(keyword in message for keyword in ['401', 'unauthorized', 'authentication failed', 'invalid credentials'])
+
+
+def is_permission_error(error):
+    message = str(error).lower()
+    return any(keyword in message for keyword in ['403', 'forbidden', 'permission denied'])
+
+
+def handle_redmine_error(error, default_status=404):
+    if isinstance(error, AuthenticationRequiredError):
+        return json_error('로그인이 필요합니다.', 401, code='auth_required')
+
+    if isinstance(error, AuthenticationFailedError) or is_authentication_error(error):
+        clear_auth_session()
+        return json_error('Redmine 로그인 세션이 만료되었거나 인증에 실패했습니다. 다시 로그인해주세요.', 401, code='auth_invalid')
+
+    if is_permission_error(error):
+        return json_error('현재 로그인한 Redmine 계정에 이 작업 권한이 없습니다.', 403, code='forbidden')
+
+    return json_error(str(error), default_status)
 
 
 def get_initial_network():
     return 'external' if APP_MODE == 'deploy' else DEFAULT_NETWORK
+
+
+@app.route('/api/auth/session')
+def get_auth_session():
+    csrf_token = ensure_csrf_token()
+    authenticated = bool(session.get('redmine_username') and session.get('credential_id') in AUTH_CREDENTIALS)
+
+    if not authenticated and session.get('redmine_username'):
+        clear_auth_session()
+        csrf_token = ensure_csrf_token()
+
+    return jsonify({
+        'authenticated': authenticated,
+        'csrf_token': csrf_token,
+        'user': build_user_payload(
+            session.get('redmine_username') or '',
+            session.get('redmine_display_name') or session.get('redmine_username') or ''
+        ) if authenticated else None,
+        'network': get_request_network(),
+    })
+
+
+@app.route('/api/auth/login', methods=['POST'])
+@require_csrf
+def login():
+    payload = request.get_json(silent=True) or {}
+    username = (payload.get('username') or '').strip()
+    password = (payload.get('password') or '').strip()
+    network_type = get_effective_network(payload.get('network'))
+
+    if not username or not password:
+        return json_error('아이디와 비밀번호를 모두 입력해주세요.', 400, code='login_invalid')
+
+    try:
+        verified_user = verify_redmine_credentials(network_type, username, password)
+        clear_auth_session(preserve_csrf=False)
+        rotate_session_boundary()
+        remember_session_user(verified_user, password)
+        session['csrf_token'] = secrets.token_urlsafe(32)
+
+        return jsonify({
+            'authenticated': True,
+            'csrf_token': session['csrf_token'],
+            'user': verified_user,
+            'network': network_type,
+        })
+    except AuthenticationFailedError as error:
+        return json_error(str(error), 401, code='login_failed')
+    except requests.exceptions.RequestException as error:
+        return json_error(f'Redmine 서버에 연결하지 못했습니다: {error}', 504, code='login_unreachable')
+
+
+@app.route('/api/auth/logout', methods=['POST'])
+@require_csrf
+def logout():
+    clear_auth_session(preserve_csrf=False)
+    rotate_session_boundary()
+    session['csrf_token'] = secrets.token_urlsafe(32)
+    return jsonify({'authenticated': False, 'csrf_token': session['csrf_token']})
 
 @app.route('/')
 def index():
@@ -113,6 +375,7 @@ def index():
     )
 
 @app.route('/api/search')
+@require_auth
 def search_issue():
     query = request.args.get('q', '')
     network_type = get_request_network()
@@ -137,11 +400,12 @@ def search_issue():
         
         return jsonify({'type': 'list', 'data': results})
     except ConfigError as e:
-        return jsonify({'error': str(e)}), 500
+        return json_error(str(e), 500)
     except Exception as e:
-        return jsonify({'error': str(e)}), 404
+        return handle_redmine_error(e)
 
 @app.route('/api/recent')
+@require_auth
 def get_recent_issues():
     network_type = get_request_network()
     try:
@@ -149,7 +413,7 @@ def get_recent_issues():
         redmine_url = f"{get_redmine_base_url(network_type)}/issues.json"
         response = requests.get(
             redmine_url,
-            headers={'X-Redmine-API-Key': REDMINE_API_KEY},
+            auth=get_redmine_basic_auth(),
             params={
                 'status_id': '*',
                 'sort': 'updated_on:desc',
@@ -162,13 +426,20 @@ def get_recent_issues():
         results = [format_issue_summary_from_json(issue) for issue in issues]
         return jsonify({'type': 'list', 'data': results})
     except ConfigError as e:
-        return jsonify({'error': str(e)}), 500
+        return json_error(str(e), 500)
     except requests.exceptions.RequestException as e:
-        return jsonify({'error': f'최근 이슈를 불러오지 못했습니다: {e}'}), 504
+        status_code = getattr(getattr(e, 'response', None), 'status_code', None)
+        if status_code == 401:
+            clear_auth_session()
+            return json_error('Redmine 로그인 세션이 만료되었거나 인증에 실패했습니다. 다시 로그인해주세요.', 401, code='auth_invalid')
+        if status_code == 403:
+            return json_error('현재 로그인한 Redmine 계정에 최근 이슈를 조회할 권한이 없습니다.', 403, code='forbidden')
+        return json_error(f'최근 이슈를 불러오지 못했습니다: {e}', 504)
     except Exception as e:
-        return jsonify({'error': str(e)}), 404
+        return handle_redmine_error(e)
 
 @app.route('/api/issue/<int:issue_id>')
+@require_auth
 def get_issue_detail(issue_id):
     network_type = get_request_network()
     try:
@@ -176,19 +447,25 @@ def get_issue_detail(issue_id):
         issue = redmine.issue.get(issue_id, include=['journals', 'attachments'])
         return jsonify(format_issue(issue))
     except ConfigError as e:
-        return jsonify({'error': str(e)}), 500
+        return json_error(str(e), 500)
     except Exception as e:
-        return jsonify({'error': str(e)}), 404
+        return handle_redmine_error(e)
 
 @app.route('/api/attachment/<int:attachment_id>')
+@require_auth
 def get_attachment(attachment_id):
     network_type = get_request_network()
     try:
         redmine = get_redmine(network_type)
         attachment = redmine.attachment.get(attachment_id)
         
-        headers = {'X-Redmine-API-Key': REDMINE_API_KEY}
-        resp = requests.get(attachment.content_url, headers=headers, stream=True)
+        resp = requests.get(
+            attachment.content_url,
+            auth=get_redmine_basic_auth(),
+            stream=True,
+            timeout=10,
+        )
+        resp.raise_for_status()
         
         return Response(
             resp.iter_content(chunk_size=1024),
@@ -198,12 +475,21 @@ def get_attachment(attachment_id):
             }
         )
     except ConfigError as e:
-        return jsonify({'error': str(e)}), 500
+        return json_error(str(e), 500)
+    except requests.exceptions.RequestException as e:
+        status_code = getattr(getattr(e, 'response', None), 'status_code', None)
+        if status_code == 401:
+            clear_auth_session()
+            return json_error('Redmine 로그인 세션이 만료되었거나 인증에 실패했습니다. 다시 로그인해주세요.', 401, code='auth_invalid')
+        if status_code == 403:
+            return json_error('현재 로그인한 Redmine 계정에 첨부 파일을 볼 권한이 없습니다.', 403, code='forbidden')
+        return json_error(f'첨부 파일을 불러오지 못했습니다: {e}', 504)
     except Exception as e:
-        return jsonify({'error': str(e)}), 404
+        return handle_redmine_error(e)
 
 
 @app.route('/api/create/options')
+@require_auth
 def get_create_options():
     network_type = get_request_network()
     try:
@@ -226,12 +512,13 @@ def get_create_options():
             }
         })
     except ConfigError as e:
-        return jsonify({'error': str(e)}), 500
+        return json_error(str(e), 500)
     except Exception as e:
-        return jsonify({'error': str(e)}), 404
+        return handle_redmine_error(e)
 
 
 @app.route('/api/create/prefill')
+@require_auth
 def get_create_prefill():
     project_id = (request.args.get('project_id') or '').strip()
     tracker_id = (request.args.get('tracker_id') or '').strip()
@@ -271,12 +558,14 @@ def get_create_prefill():
             'default_description': '',
         })
     except ConfigError as e:
-        return jsonify({'error': str(e)}), 500
+        return json_error(str(e), 500)
     except Exception as e:
-        return jsonify({'error': str(e)}), 404
+        return handle_redmine_error(e)
 
 
 @app.route('/api/issues', methods=['POST'])
+@require_auth
+@require_csrf
 def create_issue():
     network_type = get_request_network()
     try:
@@ -320,11 +609,11 @@ def create_issue():
 
         return jsonify(format_created_issue_response(issue)), 201
     except CreateIssueValidationError as e:
-        return jsonify({'error': str(e)}), 400
+        return json_error(str(e), 400)
     except ConfigError as e:
-        return jsonify({'error': str(e)}), 500
+        return json_error(str(e), 500)
     except Exception as e:
-        return jsonify({'error': str(e)}), 404
+        return handle_redmine_error(e)
 
 
 def build_project_hierarchy(project_name=None, parent_project_name=None):
