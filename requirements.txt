@@ -1,4 +1,5 @@
 flask
+Flask-Session
 python-redmine
 python-dotenv
 gunicorn
