@@ -216,6 +216,7 @@ header p {
   align-items: center;
   gap: 8px;
   font-size: 0.95rem;
+  line-height: 1;
 }
 
 .status-dot {
@@ -224,21 +225,28 @@ header p {
   background-color: var(--success-color);
   border-radius: 50%;
   box-shadow: 0 0 8px var(--success-color);
+  margin-top: 1px;
 }
 
 .profile-name {
   font-weight: 600;
   color: var(--text-primary);
+  line-height: 1;
 }
 
 .profile-network {
   color: var(--text-secondary);
   font-size: 0.85rem;
+  line-height: 1;
 }
 
 .small-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 6px 14px;
   font-size: 0.85rem;
+  line-height: 1;
   margin-bottom: 0;
   min-height: auto;
   border-radius: 999px;
@@ -1441,6 +1449,25 @@ header p {
 .bottom-sheet-item[data-depth="3"],
 .bottom-sheet-item[data-depth="4"],
 .bottom-sheet-item[data-depth="5"] { font-weight: 500; color: #5b21b6; }
+
+/* Desktop adjustment */
+@media (min-width: 601px) {
+  .bottom-sheet-overlay {
+    align-items: center;
+    padding: 40px;
+  }
+
+  .bottom-sheet-content {
+    border-radius: var(--radius-lg);
+    max-height: 70vh;
+  }
+
+  .bottom-sheet-overlay.hidden .bottom-sheet-content {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+}
+ottom-sheet-item[data-depth="5"] { font-weight: 500; color: #5b21b6; }
 
 /* Desktop adjustment */
 @media (min-width: 601px) {
