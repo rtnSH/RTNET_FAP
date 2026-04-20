@@ -713,14 +713,14 @@ header p {
 
 /* 1 단계 하위 프로젝트 - 진한 남색 */
 #create-project option[data-depth="1"] {
-  color: #1e40af;
+  color: #7c3aed;
   font-weight: 600;
 }
 
 /* 2 단계 하위 프로젝트 - 보라색 */
 #create-project option[data-depth="2"] {
-  color: #7c3aed;
-  font-weight: 600;
+  color: #1e40af;
+  font-weight: 600; 
 }
 
 /* 3 단계 이상 - 진한 보라색 */
