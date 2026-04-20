@@ -711,26 +711,25 @@ header p {
   font-weight: 700;
 }
 
-/* 1 단계 하위 프로젝트 - 보라색 */
+/* 1 단계 하위 프로젝트 - 밝은 하늘색 */
 #create-project option[data-depth="1"] {
-  color: #7c3aed;
+  color: #38bdf8;
   font-weight: 600;
 }
 
-/* 2 단계 하위 프로젝트 - 진한 남색 */
+/* 2 단계 하위 프로젝트 - 연보라색 */
 #create-project option[data-depth="2"] {
-  color: #1e40af;
-  font-weight: 600; 
+  color: #a78bfa;
+  font-weight: 600;
 }
 
-/* 3 단계 이상 - 진한 보라색 */
+/* 3 단계 이상 - 밝은 라벤더 */
 #create-project option[data-depth="3"],
 #create-project option[data-depth="4"],
 #create-project option[data-depth="5"] {
-  color: #5b21b6;
+  color: #c084fc;
   font-weight: 500;
 }
-
 .create-form input[type="text"],
 .create-form select,
 .create-form textarea,
@@ -1493,13 +1492,16 @@ header p {
   display: none !important;
 }
 
-/* Depth styling */
-.bottom-sheet-item[data-depth="0"] { font-weight: 700; color: #3b82f6; }
-.bottom-sheet-item[data-depth="1"] { font-weight: 600; color: #1e40af; }
-.bottom-sheet-item[data-depth="2"] { font-weight: 600; color: #7c3aed; }
+/* Depth styling - Using specific colors for better visibility */
+.bottom-sheet-item,
+.bottom-sheet-item[data-depth] { color: var(--text-primary); }
+
+.bottom-sheet-item[data-depth="0"] { font-weight: 700; color: #3b82f6 !important; }
+.bottom-sheet-item[data-depth="1"] { font-weight: 600; color: #38bdf8 !important; }
+.bottom-sheet-item[data-depth="2"] { font-weight: 600; color: #a78bfa !important; }
 .bottom-sheet-item[data-depth="3"],
 .bottom-sheet-item[data-depth="4"],
-.bottom-sheet-item[data-depth="5"] { font-weight: 500; color: #5b21b6; }
+.bottom-sheet-item[data-depth="5"] { font-weight: 500; color: #c084fc !important; }
 
 /* Desktop adjustment */
 @media (min-width: 601px) {
