@@ -15,6 +15,7 @@ const createState = {
         priorityId: ''
     },
     latestOptionsKey: '',
+    latestAssignableKey: '',
     lastAppliedSubject: '',
     subjectDirty: false,
     lastAppliedDescription: '',
@@ -523,13 +524,13 @@ async function loadCreateOptions({ preserveSelections = true, preserveFeedback =
     const currentValues = preserveSelections ? {
         projectId: elements.project?.value || '',
         trackerId: elements.tracker?.value || '',
-        assigneeKey: elements.assignee?.value || '',
+        assignedToId: elements.assignee?.value || '',
         statusId: elements.status?.value || '',
         priorityId: elements.priority?.value || ''
     } : {
         projectId: '',
         trackerId: '',
-        assigneeKey: '',
+        assignedToId: '',
         statusId: '',
         priorityId: ''
     };
@@ -578,13 +579,6 @@ async function loadCreateOptions({ preserveSelections = true, preserveFeedback =
             selectedValue: currentValues.trackerId || createState.optionsDefaults.trackerId
         });
 
-        populateSelect(elements.assignee, result.assignees || [], {
-            placeholder: '담당자 선택',
-            valueKey: 'key',
-            selectedValue: currentValues.assigneeKey,
-            labelBuilder: (item) => item?.label || ''
-        });
-
         populateSelect(elements.status, result.statuses || [], {
             placeholder: '상태 선택',
             selectedValue: currentValues.statusId || createState.optionsDefaults.statusId
@@ -596,8 +590,17 @@ async function loadCreateOptions({ preserveSelections = true, preserveFeedback =
         });
 
         resetCreateParentOptions('프로젝트와 유형을 먼저 선택하세요');
+        resetAssignableOptions(elements.project?.value ? '담당자를 불러오는 중입니다.' : '프로젝트를 먼저 선택하세요');
         renderCreateAdvancedSummary();
         renderCreateProjectPath();
+
+        if (elements.project?.value) {
+            await loadAssignableUsers({
+                preserveSelection: true,
+                preserveFeedback: true,
+                selectedValue: currentValues.assignedToId
+            });
+        }
 
         if (elements.project?.value && elements.tracker?.value) {
             await loadCreatePrefill({ preserveFeedback: true });
@@ -626,13 +629,68 @@ async function handleCreateScopeChange() {
     clearCreateFeedback();
 
     const elements = getCreateElements();
-    if (!elements.project?.value || !elements.tracker?.value) {
+    if (!elements.project?.value) {
+        resetAssignableOptions('프로젝트를 먼저 선택하세요');
+        resetCreateParentOptions('프로젝트와 유형을 먼저 선택하세요');
+        resetCreatePrefillFields();
+        return;
+    }
+
+    await loadAssignableUsers({ preserveSelection: false, preserveFeedback: true });
+
+    if (!elements.tracker?.value) {
         resetCreateParentOptions('프로젝트와 유형을 먼저 선택하세요');
         resetCreatePrefillFields();
         return;
     }
 
     await loadCreatePrefill();
+}
+
+async function loadAssignableUsers({ preserveSelection = false, preserveFeedback = false, selectedValue = '' } = {}) {
+    const elements = getCreateElements();
+
+    if (!elements.project?.value) {
+        resetAssignableOptions('프로젝트를 먼저 선택하세요');
+        return;
+    }
+
+    const requestKey = `${getSelectedNetwork()}:${elements.project.value}:${elements.tracker?.value || ''}:${Date.now()}`;
+    createState.latestAssignableKey = requestKey;
+
+    try {
+        const network = getSelectedNetwork();
+        const trackerQuery = elements.tracker?.value
+            ? `&tracker_id=${encodeURIComponent(elements.tracker.value)}`
+            : '';
+        const result = await apiRequest(
+            `/api/projects/${encodeURIComponent(elements.project.value)}/assignable-users?network=${network}${trackerQuery}`
+        );
+
+        if (createState.latestAssignableKey !== requestKey) {
+            return;
+        }
+
+        const assignees = result.assignees || [];
+        const effectiveSelectedValue = preserveSelection
+            ? (selectedValue || String(result.default_assigned_to_id || ''))
+            : String(result.default_assigned_to_id || '');
+
+        populateSelect(elements.assignee, assignees, {
+            placeholder: assignees.length > 0 ? '담당자 선택' : '선택 가능한 담당자가 없습니다',
+            selectedValue: effectiveSelectedValue,
+            labelBuilder: (item) => item?.label || ''
+        });
+    } catch (err) {
+        if (createState.latestAssignableKey !== requestKey) {
+            return;
+        }
+
+        resetAssignableOptions('담당자를 불러오지 못했습니다');
+        if (!preserveFeedback) {
+            renderCreateFeedback('error', `담당자 목록을 불러오지 못했습니다: ${escapeHTML(err.message)}`);
+        }
+    }
 }
 
 async function loadCreatePrefill({ preserveFeedback = false } = {}) {
@@ -787,7 +845,7 @@ async function submitCreateForm() {
     formData.append('status_id', elements.status?.value || '');
     formData.append('priority_id', elements.priority?.value || '');
     formData.append('parent_issue_id', elements.parent?.value || '');
-    formData.append('assignee_key', elements.assignee?.value || '');
+    formData.append('assigned_to_id', elements.assignee?.value || '');
 
     createState.selectedFiles.forEach((file) => {
         formData.append('files', file, file.name);
@@ -936,6 +994,11 @@ function resetCreateParentOptions(message) {
     renderCreateAdvancedSummary();
 }
 
+function resetAssignableOptions(message) {
+    const { assignee } = getCreateElements();
+    populateSelect(assignee, [], { placeholder: message });
+}
+
 function renderCreateFeedback(type, message) {
     const { feedback } = getCreateElements();
 
@@ -1077,6 +1140,7 @@ function resetCreateDraft(options = {}) {
     createState.selectedFiles = [];
     createState.projects = [];
     createState.latestOptionsKey = '';
+    createState.latestAssignableKey = '';
     createState.latestPrefillKey = '';
     createState.lastAppliedSubject = '';
     createState.subjectDirty = false;

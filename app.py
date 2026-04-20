@@ -40,16 +40,22 @@ REDMINE_URL_EXTERNAL = os.getenv('REDMINE_URL_EXTERNAL')
 SECRET_KEY = os.getenv('SECRET_KEY')
 SESSION_FILE_DIR = os.getenv('SESSION_FILE_DIR')
 
-ASSIGNEE_MAP = {
-    'admin': {'label': '김윤권', 'login': 'admin'},
-    'cmkim': {'label': '김창민', 'login': 'cmkim'},
-    'ssjeon': {'label': '전상수', 'login': 'ssjeon'},
-    'sh.lee': {'label': '이수호', 'login': 'sh.lee'},
-}
 DEFAULT_TRACKER_NAME = '4_오류수정'
 DEFAULT_STATUS_NAME = '신규'
 DEFAULT_PRIORITY_NAME = '보통'
 TITLE_SEGMENT_PATTERN = re.compile(r'^(\d+)[_\-](\d+)(?:[_\-]\d+)*')
+ALLOWED_ASSIGNABLE_LOGINS = {
+    'admin',
+    'cmkim',
+    'ssjeon',
+    'suho.lee',
+}
+ALLOWED_ASSIGNABLE_NAMES = {
+    '김윤권',
+    '김창민',
+    '전상수',
+    '이수호',
+}
 
 
 def normalize_network(network_type):
@@ -303,6 +309,31 @@ def handle_redmine_error(error, default_status=404):
     return json_error(str(error), default_status)
 
 
+def log_create_issue_error(stage, error, payload, network_type, extra_context=None):
+    if not is_permission_error(error):
+        return
+
+    safe_payload = payload or {}
+    context = {
+        'stage': stage,
+        'network': network_type,
+        'project_id': safe_payload.get('project_id'),
+        'tracker_id': safe_payload.get('tracker_id'),
+        'status_id': safe_payload.get('status_id'),
+        'priority_id': safe_payload.get('priority_id'),
+        'parent_issue_id': safe_payload.get('parent_issue_id'),
+        'assigned_to_id': safe_payload.get('assigned_to_id'),
+        'file_count': len(safe_payload.get('files') or []),
+        'redmine_username': session.get('redmine_username'),
+        'error': str(error),
+    }
+
+    if extra_context:
+        context.update(extra_context)
+
+    app.logger.warning('Issue creation forbidden: %s', context)
+
+
 def get_initial_network():
     return 'external' if APP_MODE == 'deploy' else DEFAULT_NETWORK
 
@@ -507,12 +538,36 @@ def get_create_options():
             'trackers': trackers,
             'statuses': statuses,
             'priorities': priorities,
-            'assignees': get_assignee_options(),
             'defaults': {
                 'tracker': find_named_option(trackers, DEFAULT_TRACKER_NAME),
                 'status': find_named_option(statuses, DEFAULT_STATUS_NAME),
                 'priority': find_named_option(priorities, DEFAULT_PRIORITY_NAME),
             }
+        })
+    except ConfigError as e:
+        return json_error(str(e), 500)
+    except Exception as e:
+        return handle_redmine_error(e)
+
+
+@app.route('/api/projects/<project_id>/assignable-users')
+@require_auth
+def get_assignable_users(project_id):
+    tracker_id = (request.args.get('tracker_id') or '').strip() or None
+    network_type = get_request_network()
+
+    try:
+        redmine = get_redmine(network_type)
+        project = get_project_by_id(redmine, project_id)
+        if not project:
+            return json_error('유효한 프로젝트를 찾지 못했습니다.', 404)
+
+        assignees, default_assigned_to_id = get_project_assignable_users(redmine, project_id, tracker_id)
+        return jsonify({
+            'project_id': str(project_id),
+            'tracker_id': tracker_id,
+            'assignees': assignees,
+            'default_assigned_to_id': default_assigned_to_id,
         })
     except ConfigError as e:
         return json_error(str(e), 500)
@@ -571,33 +626,70 @@ def get_create_prefill():
 @require_csrf
 def create_issue():
     network_type = get_request_network()
+    payload = {}
+    stage = 'parse_payload'
+    log_context = {}
     try:
         payload = parse_create_issue_payload()
+        stage = 'get_redmine_client'
         redmine = get_redmine(network_type)
+
+        stage = 'get_project'
         project = get_project_by_id(redmine, payload['project_id'])
         if not project:
             raise CreateIssueValidationError('유효한 프로젝트를 찾지 못했습니다.')
 
+        stage = 'get_tracker'
         tracker = get_tracker_by_id(redmine, payload['tracker_id'])
         if not tracker:
             raise CreateIssueValidationError('유효한 유형을 찾지 못했습니다.')
 
+        stage = 'load_statuses'
         statuses = get_status_options(redmine)
+        stage = 'load_priorities'
         priorities = get_priority_options(redmine)
+        stage = 'resolve_status'
         selected_status = resolve_selected_option(statuses, payload['status_id'], DEFAULT_STATUS_NAME, '상태')
+        stage = 'resolve_priority'
         selected_priority = resolve_selected_option(priorities, payload['priority_id'], DEFAULT_PRIORITY_NAME, '우선순위')
-        assignee = get_assignee_user(redmine, payload['assignee_key'])
+        stage = 'resolve_assignee'
+        assignable_users, default_assigned_to_id = get_project_assignable_users(
+            redmine,
+            payload['project_id'],
+            payload['tracker_id'],
+        )
+        assigned_to_id = resolve_assigned_to_id(
+            payload['assigned_to_id'],
+            assignable_users,
+            default_assigned_to_id,
+        )
+        log_context.update({
+            'resolved_status_id': selected_status['id'],
+            'resolved_priority_id': selected_priority['id'],
+            'resolved_assigned_to_id': assigned_to_id,
+            'assignable_user_count': len(assignable_users),
+        })
 
+        stage = 'load_parent_candidates'
         scoped_issues = list(redmine.issue.filter(
             project_id=payload['project_id'],
             tracker_id=payload['tracker_id'],
             status_id='*',
             sort='created_on:asc',
         ))
+        stage = 'resolve_parent_issue'
         parent_issue_options = build_parent_issue_options(scoped_issues)
         parent_issue_id = resolve_parent_issue_id(payload['parent_issue_id'], parent_issue_options)
-        uploads = upload_issue_files(redmine, payload['files'])
+        log_context.update({
+            'resolved_parent_issue_id': parent_issue_id,
+            'parent_option_count': len(parent_issue_options),
+        })
 
+        stage = 'upload_files'
+        uploads = upload_issue_files(redmine, payload['files'])
+        log_context['upload_count'] = len(uploads)
+
+        stage = 'create_issue'
         issue = redmine.issue.create(
             project_id=payload['project_id'],
             tracker_id=payload['tracker_id'],
@@ -605,7 +697,7 @@ def create_issue():
             description=payload['description'],
             status_id=selected_status['id'],
             priority_id=selected_priority['id'],
-            assigned_to_id=assignee['id'],
+            assigned_to_id=assigned_to_id,
             parent_issue_id=parent_issue_id,
             uploads=uploads,
         )
@@ -616,6 +708,7 @@ def create_issue():
     except ConfigError as e:
         return json_error(str(e), 500)
     except Exception as e:
+        log_create_issue_error(stage, e, payload, network_type, log_context)
         return handle_redmine_error(e)
 
 
@@ -773,15 +866,69 @@ def get_priority_options(redmine):
     return sort_named_resources(priorities)
 
 
-def get_assignee_options():
-    return [
-        {
-            'key': key,
-            'label': value['label'],
-            'login': value['login'],
+def get_project_assignable_users(redmine, project_id, tracker_id=None):
+    memberships = list(redmine.project_membership.filter(project_id=project_id))
+    role_ids = set()
+    membership_rows = []
+
+    for membership in memberships:
+        user = getattr(membership, 'user', None)
+        if not user:
+            continue
+
+        roles = list(getattr(membership, 'roles', []) or [])
+        membership_rows.append((user, roles))
+
+        for role in roles:
+            role_id = getattr(role, 'id', None)
+            if role_id is not None:
+                role_ids.add(str(role_id))
+
+    assignable_role_ids = set()
+    for role_id in role_ids:
+        role_detail = redmine.role.get(role_id)
+        if getattr(role_detail, 'assignable', False):
+            assignable_role_ids.add(str(role_id))
+
+    assignable_users = {}
+    current_username = session.get('redmine_username')
+    default_assigned_to_id = None
+
+    for user, roles in membership_rows:
+        if not any(str(getattr(role, 'id', '')) in assignable_role_ids for role in roles):
+            continue
+
+        user_id = getattr(user, 'id', None)
+        if user_id is None:
+            continue
+
+        user_login = getattr(user, 'login', None)
+        user_name = getattr(user, 'name', None) or user_login or str(user_id)
+
+        if not is_allowed_assignable_user(user_login, user_name):
+            continue
+
+        assignable_users[str(user_id)] = {
+            'id': user_id,
+            'label': user_name,
+            'login': user_login,
+            'type': 'user',
         }
-        for key, value in ASSIGNEE_MAP.items()
-    ]
+
+        if current_username and current_username == user_login:
+            default_assigned_to_id = user_id
+
+    ordered_users = sorted(
+        assignable_users.values(),
+        key=lambda item: ((item.get('label') or '').lower(), str(item.get('id'))),
+    )
+    return ordered_users, default_assigned_to_id
+
+
+def is_allowed_assignable_user(user_login, user_name):
+    normalized_login = (user_login or '').strip().lower()
+    normalized_name = (user_name or '').strip()
+    return normalized_login in ALLOWED_ASSIGNABLE_LOGINS or normalized_name in ALLOWED_ASSIGNABLE_NAMES
 
 
 def format_project_option(project):
@@ -861,7 +1008,7 @@ def parse_create_issue_payload():
         'status_id': clean_optional_field(request.form.get('status_id')),
         'priority_id': clean_optional_field(request.form.get('priority_id')),
         'parent_issue_id': clean_optional_field(request.form.get('parent_issue_id')),
-        'assignee_key': clean_required_field(request.form.get('assignee_key'), 'assignee_key'),
+        'assigned_to_id': clean_required_field(request.form.get('assigned_to_id'), 'assigned_to_id'),
         'files': [file for file in request.files.getlist('files') if file and file.filename],
     }
     return payload
@@ -892,23 +1039,17 @@ def resolve_selected_option(options, selected_id, default_name, field_label):
     return default_option
 
 
-def get_assignee_user(redmine, assignee_key):
-    assignee = ASSIGNEE_MAP.get(assignee_key)
-    if not assignee:
-        raise CreateIssueValidationError('유효한 담당자를 선택해주세요.')
+def resolve_assigned_to_id(selected_assigned_to_id, assignable_users, default_assigned_to_id=None):
+    if selected_assigned_to_id:
+        selected_option = find_option_by_id(assignable_users, selected_assigned_to_id)
+        if not selected_option:
+            raise CreateIssueValidationError('유효한 담당자를 선택해주세요.')
+        return selected_option['id']
 
-    candidates = redmine.user.filter(name=assignee['login'])
-    for user in candidates:
-        user_login = getattr(user, 'login', '')
-        user_name = getattr(user, 'name', '')
-        if user_login == assignee['login'] or user_name == assignee['label']:
-            return {
-                'id': getattr(user, 'id', None),
-                'login': user_login,
-                'label': assignee['label'],
-            }
+    if default_assigned_to_id is not None:
+        return default_assigned_to_id
 
-    raise CreateIssueValidationError(f"담당자 계정({assignee['login']})을 찾지 못했습니다.")
+    raise CreateIssueValidationError('유효한 담당자를 선택해주세요.')
 
 
 def resolve_parent_issue_id(selected_parent_issue_id, parent_issue_options):
