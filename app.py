@@ -987,7 +987,13 @@ def build_parent_issue_options(issues):
         except Exception:
             parent = None
 
-        if parent:
+        try:
+            status = getattr(issue, 'status', None)
+            is_closed = bool(getattr(status, 'is_closed', False)) if status else False
+        except Exception:
+            is_closed = False
+
+        if parent or is_closed:
             continue
 
         root_issues.append({
