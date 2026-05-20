@@ -1,5 +1,8 @@
 # AGENTS.md
 
+## 에이전트 응답 규칙
+- 모든 대답은 한글로 한다.
+
 ## 저장소 구조
 - 이 저장소는 전체 Redmine 소스가 아니라 작은 Flask 앱이다. 진입점은 `app.py`다.
 - 사용자 동작과 직접 연결된 파일은 주로 `app.py`, `templates/index.html`, `static/js/script.js`, `static/css/style.css`에 모여 있다.
